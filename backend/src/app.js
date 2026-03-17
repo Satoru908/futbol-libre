@@ -44,8 +44,21 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter); // Aplicar solo a rutas API
 
+// Configuración extrema de CORS para bypass de Hugging Face
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.header('X-Frame-Options', 'ALLOWALL'); // Forzar permiso de iframes
+  
+  if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+  }
+  next();
+});
+
 // 4. Middlewares Básicos
-app.use(configureCors());
+// app.use(configureCors()); // Desactivado temporalmente el configurador viejo para priorizar la regla global
 app.use(express.json());
 app.use(requestLogger);
 
