@@ -1,0 +1,47 @@
+User-agent: *
+Allow: /
+
+# Permitir acceso a recursos importantes
+Allow: /css/
+Allow: /js/
+Allow: /images/
+Allow: /data/
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.webp$
+Allow: /*.svg$
+
+# Bloquear archivos innecesarios
+Disallow: /admin/
+Disallow: /private/
+Disallow: /*.log$
+Disallow: /temp/
+Disallow: /cache/
+
+# Sitemap
+Sitemap: https://futbollibrevivo.netlify.app/sitemap.xml
+
+# Crawl-delay para ser amigable con los servidores
+Crawl-delay: 1
+
+# Específico para Googlebot
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 1
+
+# Específico para Bingbot
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 2
+
+# Bloquear bots maliciosos
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /

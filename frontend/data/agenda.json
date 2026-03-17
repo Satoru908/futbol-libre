@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "time": "20:15",
+    "title": "Liga Profesional: Instituto vs Independiente",
+    "category": "Futbol",
+    "status": "En vivo",
+    "isLive": true,
+    "isFinished": false,
+    "isUpcoming": false,
+    "url": "canal.html?stream=tntsports",
+    "streamId": "tntsports"
+  }
+]
