@@ -33,9 +33,10 @@ app.use(compression({
 }));
 
 // 3. Rate Limiting: Prevenir abusos, scraping y DDoS general
+// AUMENTADO ESPECÍFICAMENTE PARA TS CHUNKS (los videos cargan docenas de chunks por segundo y bloqueaba la red)
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos en milisegundos
-  max: 1000, // Límite de 1000 peticiones por IP en 15 mins (ideal para video HLS y playlists)
+  windowMs: 15 * 60 * 1000, 
+  max: 10000, // Subido de 1000 a 10000 para no bloquear streams fluidos
   standardHeaders: true, 
   legacyHeaders: false,
   message: {
