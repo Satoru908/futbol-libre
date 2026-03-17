@@ -256,12 +256,26 @@ router.get('/stream-manifest', async (req, res, next) => {
       return res.status(500).json({ error: 'Manifesto HLS vacío' });
     }
 
-    logger.info(`Manifesto obtenido exitosamente para: ${stream} (${manifestResponse.data.length} bytes)`);
+    // Reescribir URLs relativas en el manifesto para que apunten al CDN original
+    // Extraer base URL del stream (dominio + puerto + ruta sin archivo)
+    const urlObj = new URL(streamUrl);
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname.substring(0, urlObj.pathname.lastIndexOf('/') + 1)}`;
+    
+    logger.info(`URL base para reescribir manifesto: ${baseUrl}`);
+    
+    // Reescribir URLs relativas en el manifesto
+    let manifestContent = manifestResponse.data;
+    // Reemplazar líneas que son rutas relativas (ej: 2026/03/17/...) con URLs absolutas
+    manifestContent = manifestContent.replace(/^((?!https?:\/\/).+\.ts\?.+)$/gm, (match) => {
+      return baseUrl + match;
+    });
+
+    logger.info(`Manifesto obtenido exitosamente para: ${stream} (${manifestResponse.data.length} -> ${manifestContent.length} bytes después de reescritura)`);
 
     // Retornar el manifesto al frontend
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
     res.setHeader('X-Stream-Id', stream);
-    res.send(manifestResponse.data);
+    res.send(manifestContent);
 
   } catch (error) {
     logger.error(`Error en GET /stream-manifest:`, error.message);
