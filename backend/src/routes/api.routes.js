@@ -189,4 +189,86 @@ router.get('/stream-url', async (req, res, next) => {
   }
 });
 
+/**
+ * NUEVO: Endpoint para obtener el manifesto HLS (.m3u8) con headers correctos
+ * 
+ * El navegador rechaza headers como Referer/Origin por seguridad
+ * pero el servidor SÍ puede enviarlos.
+ * 
+ * Flujo:
+ * 1. Frontend pide /api/stream-manifest?stream=foxsports3
+ * 2. Backend obtiene URL del stream
+ * 3. Backend descarga el .m3u8 desde FuboHD (CON headers)
+ * 4. Backend devuelve el .m3u8 al frontend
+ * 5. Frontend usa el .m3u8 en hls.js
+ * 6. Segmentos de video se descargan directamente de FuboHD (NO pasan por servidor)
+ * 
+ * GET /api/stream-manifest?stream=foxsports3
+ */
+router.get('/stream-manifest', async (req, res, next) => {
+  try {
+    const { stream, provider } = req.query;
+
+    if (!stream) {
+      logger.warn('GET /stream-manifest: Parámetro stream faltante');
+      return res.status(400).json({
+        error: 'Parámetro stream requerido',
+        example: '/api/stream-manifest?stream=foxsports3'
+      });
+    }
+
+    const selectedProvider = provider || 'la14hd';
+    let htmlProvider = null;
+
+    if (selectedProvider === 'la14hd') {
+      htmlProvider = la14Provider.fetchHtml.bind(la14Provider);
+    } else {
+      logger.error(`Provider desconocido en /stream-manifest: ${selectedProvider}`);
+      return res.status(400).json({ error: 'Provider desconocido' });
+    }
+
+    // Obtener URL del stream
+    logger.info(`Obteniendo manifesto para: ${stream}`);
+    const streamData = await hlsStreamResolver.getStreamUrl(stream, htmlProvider);
+
+    if (!streamData) {
+      logger.error(`No se pudo obtener URL del stream para: ${stream}`);
+      return res.status(500).json({ error: 'No se pudo obtener la URL del stream' });
+    }
+
+    const streamUrl = streamData.url;
+    logger.info(`URL del stream para manifesto: ${streamUrl}`);
+
+    // Descargar el manifesto avec headers correctos
+    logger.info(`Descargando manifesto HLS desde: ${streamUrl}`);
+    const manifestResponse = await axios.get(streamUrl, {
+      headers: {
+        'Referer': 'https://la14hd.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Origin': 'https://la14hd.com'
+      },
+      timeout: 10000
+    });
+
+    if (!manifestResponse.data) {
+      logger.error(`Manifesto vacío para stream: ${stream}`);
+      return res.status(500).json({ error: 'Manifesto HLS vacío' });
+    }
+
+    logger.info(`Manifesto obtenido exitosamente para: ${stream} (${manifestResponse.data.length} bytes)`);
+
+    // Retornar el manifesto al frontend
+    res.setHeader('Content-Type', 'application/vnd.apple.mpegurl; charset=utf-8');
+    res.setHeader('X-Stream-Id', stream);
+    res.send(manifestResponse.data);
+
+  } catch (error) {
+    logger.error(`Error en GET /stream-manifest:`, error.message);
+    res.status(500).json({
+      error: 'Error obteniendo manifesto',
+      details: error.message
+    });
+  }
+});
+
 module.exports = router;

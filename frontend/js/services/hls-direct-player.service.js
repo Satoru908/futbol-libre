@@ -20,16 +20,14 @@ export class HlsDirectPlayerService {
         this.container = containerElement;
         this.video = null;
         this.hls = null;
-        this.controls = null;
         this.apiBaseUrl = APP_CONFIG.apiBaseUrl;
         this.currentStreamId = null;
-        this.currentHeaders = null;
         this.retryCount = 0;
         this.maxRetries = 3;
     }
 
     /**
-     * Carga un stream HLS usando URL fresca desde el backend
+     * Carga un stream HLS desde el endpoint de manifesto del backend
      * @param {string} streamId - ID del stream a cargar
      */
     async load(streamId) {
@@ -44,98 +42,19 @@ export class HlsDirectPlayerService {
         console.log('[HLS DEBUG] API Base URL:', this.apiBaseUrl);
 
         try {
-            // Paso 1: Obtener URL del stream desde el backend (con reintentos)
-            const streamData = await this._fetchStreamUrlWithRetry(streamId);
-            
-            if (!streamData || !streamData.url) {
-                throw new Error('No se pudo obtener la URL del stream');
-            }
-
-            const streamUrl = streamData.url;
-            console.log('[HLS DEBUG] Stream URL obtenida:', streamUrl);
-
-            // Paso 2: Crear elemento video
+            // Paso 1: Crear elemento video
             this._buildVideoElement();
 
-            // Paso 3: Inicializar hls.js
-            this._initializeHls(streamUrl, streamId);
+            // Paso 2: Inicializar hls.js con el endpoint de manifesto
+            // El backend (/api/stream-manifest) descargará el .m3u8 con headers correctos
+            // hls.js luego descargará los segmentos directamente del CDN (bypass del 403)
+            this._initializeHls(streamId);
 
             console.log('[HLS DEBUG] Player inicializado correctamente');
 
         } catch (error) {
             console.error('[HLS DEBUG] Error cargando stream:', error.message);
             throw error;
-        }
-    }
-
-    /**
-     * Obtiene la URL del stream con reintentos automáticos
-     */
-    async _fetchStreamUrlWithRetry(streamId, attempt = 1) {
-        try {
-            const streamData = await this._fetchStreamUrl(streamId);
-            if (streamData) {
-                console.log(`[HLS DEBUG] URL obtenida en intento ${attempt}`);
-                return streamData;
-            }
-            
-            // Si no hay URL pero tampoco error, reintentar
-            if (attempt < this.maxRetries) {
-                console.log(`[HLS DEBUG] Reintentando obtener URL (intento ${attempt + 1}/${this.maxRetries})...`);
-                await this._delay(1000 * attempt); // Espera exponencial
-                return this._fetchStreamUrlWithRetry(streamId, attempt + 1);
-            }
-            
-            return null;
-        } catch (error) {
-            if (attempt < this.maxRetries) {
-                console.log(`[HLS DEBUG] Error en intento ${attempt}, reintentando...`);
-                await this._delay(1000 * attempt);
-                return this._fetchStreamUrlWithRetry(streamId, attempt + 1);
-            }
-            throw error;
-        }
-    }
-
-    /**
-     * Delay helper
-     */
-    _delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    /**
-     * Obtiene la URL y headers del stream desde el backend
-     * @returns {Promise<{url: string, headers: object}>} - Objeto con URL y headers
-     */
-    async _fetchStreamUrl(streamId) {
-        try {
-            const url = `${this.apiBaseUrl}/stream-url?stream=${encodeURIComponent(streamId)}`;
-            console.log('[HLS DEBUG] Fechando stream URL desde:', url);
-
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const data = await response.json();
-            console.log('[HLS DEBUG] Stream URL response:', data);
-
-            // Guardar headers para usarlos luego en hls.js
-            if (data.headers) {
-                this.currentHeaders = data.headers;
-                console.log('[HLS DEBUG] Headers recibidos:', this.currentHeaders);
-            }
-
-            return {
-                url: data.url,
-                headers: data.headers || {}
-            } || null;
-
-        } catch (error) {
-            console.error('[HLS DEBUG] Error fetching stream URL:', error.message);
-            return null;
         }
     }
 
@@ -168,24 +87,30 @@ export class HlsDirectPlayerService {
     }
 
     /**
-     * Inicializa hls.js para reproducir el stream
+     * Inicializa hls.js para reproducir el stream desde el endpoint de manifesto
      */
-    _initializeHls(streamUrl, streamId) {
-        // Si el navegador soporta HLS nativo (como Safari)
-        if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            console.log('[HLS DEBUG] Usando HLS nativo del navegador');
-            this.video.src = streamUrl;
+    _initializeHls(streamId) {
+        // Preferir hls.js sobre HLS nativo porque permite cargar desde el proxy
+        // Solo usar HLS nativo en Safari real (no en Chrome/Firefox que lo simulan)
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const canPlayHls = this.video.canPlayType('application/vnd.apple.mpegurl');
+
+        if (isSafari && canPlayHls) {
+            console.log('[HLS DEBUG] Safari detectado, usando HLS nativo');
+            // Para Safari, también usar el endpoint de manifesto para obtener el .m3u8
+            const manifestUrl = `${this.apiBaseUrl}/stream-manifest?stream=${encodeURIComponent(streamId)}`;
+            this.video.src = manifestUrl;
             
-            // Listener para errores de network en navegador nativo
+            // Listener para errores en Safari
             this.video.addEventListener('error', () => {
                 const error = this.video.error;
                 if (error && error.code === error.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-                    console.error('[HLS DEBUG] Error 403 o URL inválida, reintentando...');
+                    console.error('[HLS DEBUG] Error 403 o URL inválida (Safari), reintentando...');
                     this._retryWithNewUrl(streamId);
                 }
             });
         } else {
-            // Usar hls.js para otros navegadores
+            // Usar hls.js para Chrome, Firefox, Edge, etc.
             if (typeof Hls === 'undefined') {
                 console.error('[HLS DEBUG] hls.js no está cargado');
                 throw new Error('hls.js library is required but not loaded');
@@ -194,17 +119,7 @@ export class HlsDirectPlayerService {
             this.hls = new Hls({
                 debug: false,
                 enableWorker: true,
-                lowLatencyMode: true,
-                // Configurar headers personalizados para descargas
-                xhrSetup: (xhr, url) => {
-                    // Agregar headers necesarios para acceder a FuboHD
-                    if (this.currentHeaders) {
-                        if (this.currentHeaders['Referer']) {
-                            xhr.setRequestHeader('Referer', this.currentHeaders['Referer']);
-                        }
-                        // User-Agent se configura a nivel del navegador, no en XHR
-                    }
-                }
+                lowLatencyMode: true
             });
 
             this.hls.attachMedia(this.video);
@@ -231,42 +146,39 @@ export class HlsDirectPlayerService {
                 }
             });
 
-            // Cargar stream
-            this.hls.loadSource(streamUrl);
+            // Usar el endpoint de manifesto del backend en lugar de la URL directa
+            // El backend descarga el .m3u8 con headers correctos (Referer, Origin, etc.)
+            // Los segmentos de video se descargan directamente del CDN por hls.js
+            const manifestUrl = `${this.apiBaseUrl}/stream-manifest?stream=${encodeURIComponent(streamId)}`;
+            console.log('[HLS DEBUG] Cargando manifesto desde:', manifestUrl);
+            this.hls.loadSource(manifestUrl);
         }
     }
 
     /**
-     * Reintentar con una URL nueva del backend
+     * Reintentar recargando el manifesto desde el backend
+     * Esto obtiene un token fresco del servidor, que luego descarga el .m3u8 con headers correctos
      */
-    async _retryWithNewUrl(streamId) {
+    _retryWithNewUrl(streamId) {
         if (this.retryCount >= this.maxRetries) {
             console.error('[HLS DEBUG] Se alcanzó el máximo de reintentos');
             return;
         }
 
         this.retryCount++;
-        console.log(`[HLS DEBUG] Reintentando con URL nueva (intento ${this.retryCount}/${this.maxRetries})...`);
+        console.log(`[HLS DEBUG] Reintentando con manifesto nuevo (intento ${this.retryCount}/${this.maxRetries})...`);
 
         try {
-            // Obtener URL nueva
-            const streamData = await this._fetchStreamUrl(streamId);
-            
-            if (!streamData || !streamData.url) {
-                throw new Error('No se pudo obtener URL nueva');
-            }
-
-            const newStreamUrl = streamData.url;
-            console.log('[HLS DEBUG] URL nueva obtenida, cargando...');
-
             // Limpiar HLS anterior
             if (this.hls) {
                 this.hls.destroy();
                 this.hls = null;
             }
 
-            // Reinicializar con la nueva URL
-            this._initializeHls(newStreamUrl, streamId);
+            // Reinicializar hls.js
+            // Esto causará que hls.js request el manifesto nuevamente,
+            // obteniendo un token fresco del backend
+            this._initializeHls(streamId);
 
         } catch (error) {
             console.error('[HLS DEBUG] Error reintentando:', error.message);
