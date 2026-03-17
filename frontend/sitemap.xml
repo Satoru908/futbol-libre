@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+  
+  <!-- Página Principal -->
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://futbollibrevivo.netlify.app/images/logo.png</image:loc>
+      <image:title>Fútbol Libre Vivo Logo</image:title>
+      <image:caption>Ver fútbol en vivo gratis online</image:caption>
+    </image:image>
+  </url>
+
+  <!-- Canales Principales -->
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=espn</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://img.golazoplay.com/uploads/espn_16110aaa3a.webp</image:loc>
+      <image:title>ESPN en vivo</image:title>
+      <image:caption>Ver ESPN online gratis en HD</image:caption>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=foxsports</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://img.golazoplay.com/uploads/fox_sports_1_7dbc294272.webp</image:loc>
+      <image:title>Fox Sports en vivo</image:title>
+      <image:caption>Ver Fox Sports online gratis en HD</image:caption>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=dsports</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+    <image:image>
+      <image:loc>https://img.golazoplay.com/uploads/dsports_bea74cb844.webp</image:loc>
+      <image:title>DSports en vivo</image:title>
+      <image:caption>Ver DSports online gratis en HD</image:caption>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=golperu</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://img.golazoplay.com/uploads/gol_peru_7167cd54dd.webp</image:loc>
+      <image:title>GolPerú en vivo</image:title>
+      <image:caption>Ver GolPerú online gratis en HD</image:caption>
+    </image:image>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=espn2</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=espn3</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=foxsports2</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=foxsports3</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=liga1max</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <url>
+    <loc>https://futbollibrevivo.netlify.app/canal.html?stream=dsports2</loc>
+    <lastmod>2025-01-08</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+</urlset>

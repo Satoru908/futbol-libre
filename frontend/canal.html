@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <!-- Google Analytics desactivado a petición del usuario -->
+    <!-- <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-1CZ6C0YD7G"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-1CZ6C0YD7G");
+    </script> -->
+
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="pageTitle">Canal - Fútbol Libre Vivo</title>
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/components.css" />
+    <link rel="stylesheet" href="css/canal.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@0.14.17"></script>
+    <!-- P2P Media Loader (Core & Hls.js integration) -->
+    <script src="https://cdn.jsdelivr.net/npm/p2p-media-loader-core@0.6.2/build/p2p-media-loader-core.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/p2p-media-loader-hlsjs@0.6.2/build/p2p-media-loader-hlsjs.min.js"></script>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="header">
+      <div class="container">
+        <div class="header-content">
+          <div class="logo">
+            <a href="index.html"><h1>Fútbol Libre</h1></a>
+          </div>
+          <nav class="nav-links">
+            <!-- Headers updated dynamically, fallbacks here -->
+            <a href="/canal?stream=liga1max" class="nav-link">L1MAX</a>
+            <a href="/canal?stream=dsports" class="nav-link">DIRECTV Sports</a>
+            <a href="/canal?stream=espn" class="nav-link">ESPN</a>
+            <a href="/canal?stream=espn2" class="nav-link">ESPN 2</a>
+            <a href="/canal?stream=espn3" class="nav-link">ESPN 3</a>
+            <a href="/canal?stream=foxsports" class="nav-link">Fox Sports</a>
+            <a href="/canal?stream=foxsports2" class="nav-link">Fox Sports 2</a>
+            <a href="/canal?stream=foxsports3" class="nav-link">Fox Sports 3</a>
+            <a href="canal.html?stream=golperu" class="nav-link">GOLPERÚ</a>
+          </nav>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <div class="container">
+        <!-- Canal Info Responsive -->
+        <section class="canal-info" id="canalInfo">
+          <!-- Header minimalista para móvil -->
+          <div class="canal-header-mobile">
+            <div class="canal-basic-info">
+              <div class="canal-logo-small">
+                <img id="canalLogoMobile" src="" alt="" />
+              </div>
+              <div class="canal-title-compact">
+                <h1 id="canalNameMobile">Canal</h1>
+                <div class="canal-status-compact">
+                  <span class="status-dot online"></span>
+                  <span class="status-text-small">EN VIVO</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Botones de acción optimizados para móvil -->
+            <div class="canal-actions-mobile">
+              <button id="backBtn" class="btn-icon" aria-label="Volver">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M19 12H5M12 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <button
+                id="fullscreenBtnMobile"
+                class="btn-icon primary"
+                aria-label="Pantalla completa"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path
+                    d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+                  />
+                </svg>
+              </button>
+              <button id="shareBtn" class="btn-icon" aria-label="Compartir">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16,6 12,2 8,6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Header completo para desktop -->
+          <div class="canal-header-desktop">
+            <div class="canal-logo">
+              <img id="canalLogo" src="" alt="" />
+            </div>
+            <div class="canal-details">
+              <h1 id="canalName">Canal</h1>
+              <p id="canalDescription">Ver canal en vivo por internet</p>
+              <div class="canal-status">
+                <span class="status-indicator online"></span>
+                <span class="status-text">En vivo</span>
+              </div>
+            </div>
+
+            <div class="canal-actions-desktop">
+              <a href="index.html" class="btn-secondary">← Volver a Canales</a>
+              <button id="fullscreenBtn" class="btn-primary">
+                Pantalla Completa
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Player Section -->
+        <section class="player-section">
+          <div class="player-container">
+            <div class="loading-overlay" id="loadingOverlay">
+              <div class="loading-spinner"></div>
+              <p>Cargando canal...</p>
+            </div>
+            
+            <video 
+              id="canalVideo" 
+              controls 
+              autoplay 
+              playsinline
+              style="width: 100%; height: 100%; aspect-ratio: 16/9; background: #000;"
+            ></video>
+
+          </div>
+        </section>
+
+        <!-- Canal Info Text -->
+        <section class="canal-text">
+          <div class="text-content">
+            <p>
+              Estás viendo <strong class="dynamic-channel-name">este canal</strong> en vivo y en directo.
+              La mejor programación de deportes y fútbol online. <strong>Fútbol Libre</strong> ofrece canales gratuitos en HD y sin anuncios molestos.
+            </p>
+            <p>
+              Disfruta de todos los eventos deportivos, partidos de fútbol y competiciones más importantes a través de
+              <strong class="dynamic-channel-name">este canal</strong>. Señal en alta definición disponible para PC y móvil.
+            </p>
+            <p>
+             Sigue a tu equipo favorito en los torneos más relevantes como la Copa Libertadores, Sudamericana,
+             Ligas Europeas y el torneo local. Todo el deporte en un solo lugar.
+            </p>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-section">
+            <h3>Fútbol Libre Vivo</h3>
+            <p>
+              Disfruta del mejor fútbol en vivo y gratis. Todos los partidos de
+              las principales ligas del mundo.
+            </p>
+          </div>
+          <div class="footer-section">
+            <h4>Canales Populares</h4>
+            <ul class="footer-links" id="footer-popular"></ul>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; 2025 Fútbol Libre Vivo. Todos los derechos reservados.</p>
+          <p class="footer-disclaimer">
+            Este sitio no aloja ningún contenido. Todos los enlaces son
+            proporcionados por terceros.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <script type="module" src="js/canal.js?v=NEW_ARCH_V2"></script>
+    <script src="js/header.js"></script>
+  </body>
+</html>

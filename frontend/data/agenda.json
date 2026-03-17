@@ -1,0 +1,50 @@
+[
+  {
+    "id": 2,
+    "time": "18:00",
+    "title": "Liga Profesional: Racing Club vs Estudiantes Río Cuarto",
+    "category": "Futbol",
+    "status": "En vivo",
+    "isLive": true,
+    "isFinished": false,
+    "isUpcoming": false,
+    "url": "canal.html?stream=espnpremium",
+    "streamId": "espnpremium"
+  },
+  {
+    "id": 3,
+    "time": "18:00",
+    "title": "Liga Profesional: Racing Club vs Estudiantes Río Cuarto",
+    "category": "Futbol",
+    "status": "En vivo",
+    "isLive": true,
+    "isFinished": false,
+    "isUpcoming": false,
+    "url": "canal.html?stream=disney8",
+    "streamId": "disney8"
+  },
+  {
+    "id": 4,
+    "time": "18:00",
+    "title": "Primera División: Liverpool vs Torque",
+    "category": "Futbol",
+    "status": "En vivo",
+    "isLive": true,
+    "isFinished": false,
+    "isUpcoming": false,
+    "url": "canal.html?stream=disney9",
+    "streamId": "disney9"
+  },
+  {
+    "id": 5,
+    "time": "18:30",
+    "title": "Primera División: Colo-Colo vs Huachipato",
+    "category": "Futbol",
+    "status": "En vivo",
+    "isLive": true,
+    "isFinished": false,
+    "isUpcoming": false,
+    "url": "canal.html?stream=tntsportschile",
+    "streamId": "tntsportschile"
+  }
+]
