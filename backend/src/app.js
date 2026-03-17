@@ -78,8 +78,8 @@ app.get('/', (req, res) => {
 initScheduledTasks();
 
 // Start server
-// Forzando el puerto a 7860 directamente en el app.listen por requerimiento estricto de Hugging Face
-const PORT = process.env.PORT || 7860;
+// Railway inyectará dinámicamente un puerto en process.env.PORT. Si no existe probará con 8787.
+const PORT = process.env.PORT || 8787;
 app.listen(PORT, '0.0.0.0', () => {
     logger.info(`Server running on port ${PORT}`);
     logger.info(`Healthcheck: http://localhost:${PORT}/api/health`);

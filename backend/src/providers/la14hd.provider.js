@@ -9,6 +9,36 @@ class La14HdProvider {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://la14hd.com/'
         };
+        this.htmlCache = new Map();
+        this.CACHE_TTL = 3 * 60 * 1000; // 3 minutos de caché para evitar requests masivos
+    }
+
+    async fetchHtml(streamId) {
+        try {
+            // Verificar si tenemos el HTML en caché
+            const cached = this.htmlCache.get(streamId);
+            if (cached && cached.expires > Date.now()) {
+                logger.info(`Entregando HTML desde caché para stream: ${streamId}`);
+                return cached.data;
+            }
+
+            logger.info(`Obteniendo HTML puro desde provider para: ${streamId}`);
+            const response = await axios.get(`${this.baseUrl}?stream=${streamId}`, {
+                headers: this.headers,
+                timeout: 10000
+            });
+            
+            // Guardar en caché
+            this.htmlCache.set(streamId, {
+                data: response.data,
+                expires: Date.now() + this.CACHE_TTL
+            });
+            
+            return response.data;
+        } catch (error) {
+            logger.error(`Error obteniendo HTML de stream ${streamId}:`, error.message);
+            return null;
+        }
     }
 
     async resolve(streamId) {
