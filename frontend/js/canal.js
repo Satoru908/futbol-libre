@@ -1,11 +1,16 @@
 import { ChannelDataService } from "./services/channel-data.service.js";
-import { StreamApiService } from "./services/stream-api.service.js";
+import { ClientScraperService } from "./services/client-scraper.service.js";
 import { HlsPlayerService } from "./services/hls-player.service.js";
 
 class CanalPage {
   constructor() {
     this.channelDataService = new ChannelDataService();
-    this.streamApiService = new StreamApiService("http://localhost:8787/api");
+    // Ajustar si en prod usas otro endpoint base
+    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? "http://localhost:8787/api"
+        : "https://satoru123908-futbol-libre-bot.hf.space/api";
+        
+    this.streamApiService = new ClientScraperService(API_BASE_URL);
     this.hlsPlayer = null;
     this.streamId = null;
     
