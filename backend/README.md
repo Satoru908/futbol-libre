@@ -9,4 +9,4 @@ pinned: false
 
 # Futbol Libre API
 
-Backend proxy y scraper desplegado como contenedor Docker en Hugging Face Spaces.
+Backend proxy y resolutor de streams.
