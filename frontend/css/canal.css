@@ -811,8 +811,10 @@ video::-webkit-media-controls-seek-forward-button {
     margin: 0 auto;
   }
 }
-\ n / *   = = =   I F R A M E   H I J A C K I N G   &   A D - S H I E L D   S T Y L E S   = = =   * /  
- . h i j a c k e d - i f r a m e   {   p o s i t i o n :   a b s o l u t e ;   t o p :   - 6 0 p x ;   l e f t :   0 ;   w i d t h :   1 0 0 % ;   h e i g h t :   c a l c ( 1 0 0 %   +   6 0 p x ) ;   b o r d e r :   n o n e ;   z - i n d e x :   1 ;   }  
+\ n / *   = = =   I F R A M E   H I J A C K I N G   &   A D - S H I E L D   S T Y L E S   = = =   * / 
+ 
+ . h i j a c k e d - i f r a m e   {   p o s i t i o n :   a b s o l u t e ;   t o p :   - 6 0 p x ;   l e f t :   0 ;   w i d t h :   1 0 0 % ;   h e i g h t :   c a l c ( 1 0 0 %   +   6 0 p x ) ;   b o r d e r :   n o n e ;   z - i n d e x :   1 ;   } 
+ 
  
 .player-ad-shield {
     position: absolute;
@@ -821,9 +823,9 @@ video::-webkit-media-controls-seek-forward-button {
     width: 100%;
     /* Dejamos descubiertos los últimos 60px donde está la barra de progreso y volumen original */
     height: calc(100% - 60px); 
-    z-index: 5;
-    background: transparent;
-    pointer-events: auto; /* ROBA TODOS LOS CLICS DE ANUNCIOS */
+    z-index: 50; /* Z-INDEX EXAGERADAMENTE ALTO */
+    background: rgba(255, 0, 0, 0.3); /* FONDO ROJO PARA QUE VEAS QUE SÍ FUNCIONA (Luego lo quitamos) */
+    pointer-events: auto !important; /* ROBA TODOS LOS CLICS DE ANUNCIOS */
     display: flex;
     justify-content: center;
     align-items: flex-end;
@@ -848,7 +850,7 @@ video::-webkit-media-controls-seek-forward-button {
 .custom-player-controls {
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 10;
+    z-index: 100; /* AÚN MÁS ALTO PARA QUE EL PLAY ESTÉ ARRIBA DE TODO */
     pointer-events: none; /* Clickeable solo en los botones específicos */
     display: flex;
     flex-direction: column;
@@ -925,3 +927,6 @@ video::-webkit-media-controls-seek-forward-button {
     background: #4caf50;
     border-color: #4caf50;
 }
+. h i j a c k e d - i f r a m e   {   p o s i t i o n :   a b s o l u t e ;   t o p :   - 6 0 p x ;   l e f t :   0 ;   w i d t h :   1 0 0 % ;   h e i g h t :   c a l c ( 1 0 0 %   +   6 0 p x ) ;   b o r d e r :   n o n e ;   z - i n d e x :   1 ;   p o i n t e r - e v e n t s :   a u t o   ! i m p o r t a n t ;   } 
+ 
+ 
