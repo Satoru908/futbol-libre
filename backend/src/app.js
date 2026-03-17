@@ -52,11 +52,16 @@ app.use('/api', apiRoutes);
 // Error handler (debe ir al final)
 app.use(errorHandler);
 
+// Ruta Raíz para chequeo de estado de Hugging Face
+app.get('/', (req, res) => {
+    res.status(200).send('API Backend Fútbol Libre Running OK');
+});
+
 // Inicializar tareas programadas
 initScheduledTasks();
 
 // Start server
-app.listen(env.PORT, () => {
+app.listen(env.PORT, '0.0.0.0', () => {
     logger.info(`Server running on port ${env.PORT}`);
     logger.info(`Healthcheck: http://localhost:${env.PORT}/api/health`);
 });
