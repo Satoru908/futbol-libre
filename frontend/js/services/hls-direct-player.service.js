@@ -119,7 +119,46 @@ export class HlsDirectPlayerService {
             const data = await response.json();
             console.log('[HLS DEBUG] Stream URL response:', data);
 
-            return data.url , streamId) {
+            return data.url || null;
+
+        } catch (error) {
+            console.error('[HLS DEBUG] Error fetching stream URL:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Construye el elemento video con controles
+     */
+    _buildVideoElement() {
+        // Limpiar contenedor
+        this.container.innerHTML = '';
+
+        // Crear elemento video
+        this.video = document.createElement('video');
+        this.video.id = 'hls-video-player';
+        this.video.style.width = '100%';
+        this.video.style.height = '100%';
+        this.video.style.background = '#000';
+        this.video.controls = true;
+        this.video.autoplay = false;
+
+        // Crear wrapper con posición relativa para controles personalizados
+        const wrapper = document.createElement('div');
+        wrapper.style.position = 'relative';
+        wrapper.style.width = '100%';
+        wrapper.style.height = '100%';
+        wrapper.appendChild(this.video);
+
+        this.container.appendChild(wrapper);
+
+        console.log('[HLS DEBUG] Elemento video creado');
+    }
+
+    /**
+     * Inicializa hls.js para reproducir el stream
+     */
+    _initializeHls(streamUrl, streamId) {
         // Si el navegador soporta HLS nativo (como Safari)
         if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
             console.log('[HLS DEBUG] Usando HLS nativo del navegador');
@@ -207,46 +246,7 @@ export class HlsDirectPlayerService {
             this._initializeHls(newStreamUrl, streamId);
 
         } catch (error) {
-            console.error('[HLS DEBUG] Error reintentando:', error.messageel stream
-     */
-    _initializeHls(streamUrl) {
-        // Si el navegador soporta HLS nativo (como Safari)
-        if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-            console.log('[HLS DEBUG] Usando HLS nativo del navegador');
-            this.video.src = streamUrl;
-        } else {
-            // Usar hls.js para otros navegadores
-            if (typeof Hls === 'undefined') {
-                console.error('[HLS DEBUG] hls.js no está cargado');
-                throw new Error('hls.js library is required but not loaded');
-            }
-
-            this.hls = new Hls({
-                debug: false,
-                enableWorker: true,
-                lowLatencyMode: true
-            });
-
-            this.hls.attachMedia(this.video);
-
-            // Event listeners
-            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                console.log('[HLS DEBUG] Manifest cargado, iniciando reproducción');
-                // Auto-play opcional
-                // this.video.play();
-            });
-
-            this.hls.on(Hls.Events.ERROR, (event, data) => {
-                if (data.fatal) {
-                    console.error('[HLS DEBUG] Error fatal en HLS:', data);
-                    this._handleHlsError(data);
-                } else {
-                    console.warn('[HLS DEBUG] Error HLS (recuperable):', data);
-                }
-            });
-
-            // Cargar stream
-            this.hls.loadSource(streamUrl);
+            console.error('[HLS DEBUG] Error reintentando:', error.message);
         }
     }
 

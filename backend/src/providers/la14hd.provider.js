@@ -15,23 +15,11 @@ class La14HdProvider {
 
     async fetchHtml(streamId) {
         try {
-            // Verificar si tenemos el HTML en caché
-            const cached = this.htmlCache.get(streamId);
-            if (cached && cached.expires > Date.now()) {
-                logger.info(`Entregando HTML desde caché para stream: ${streamId}`);
-                return cached.data;
-            }
-
-            logger.info(`Obteniendo HTML puro desde provider para: ${streamId}`);
+            // NO cachear HTML: siempre obtener fresco para que el token sea nuevo
+            logger.info(`Obteniendo HTML puro FRESCO (sin caché) para: ${streamId}`);
             const response = await axios.get(`${this.baseUrl}?stream=${streamId}`, {
                 headers: this.headers,
                 timeout: 10000
-            });
-            
-            // Guardar en caché
-            this.htmlCache.set(streamId, {
-                data: response.data,
-                expires: Date.now() + this.CACHE_TTL
             });
             
             return response.data;

@@ -18,11 +18,82 @@ class HlsStreamResolver {
     }
 
     /**
-     * Extrae la URL del stream (playbackURL) desde el HTML
-     * @param {string} html - HTML del reproductor
-     * @returns {string|null} - URL del stream o null si no encuentra
+     * Extrae la fecha de expiración del token de la URL
+     * Formato del token: HASH-XX-EXPIRATION_TS-ISSUED_TS
+     * Ej: 7a328aa18534537476753a2843da8a494fb1a02f-d4-1773784638-1773766638
      */
-    extractStreamUrl(html) {
+    extractTokenExpiration(url) {
+        try {
+            const tokenMatch = url.match(/token=([^&]+)/);
+            if (!tokenMatch || !tokenMatch[1]) {
+                logger.warn('No se encontró token en URL');
+                return null;
+            }
+
+            const token = tokenMatch[1];
+            const parts = token.split('-');
+            
+            // Formato esperado: HASH(40 chars)-XX(2 chars)-EXPIRATION(10 digits)-ISSUED(10 digits)
+            if (parts.length < 4) {
+                logger.warn('Formato de token inválido');
+                return null;
+            }
+
+            // Última parte es la fecha de expiración (en segundos)
+            const expirationSeconds = parseInt(parts[2], 10);
+            
+            if (isNaN(expirationSeconds)) {
+                logger.warn('No se pudo parsear expiración del token');
+                return null;
+            }
+
+            const expirationMs = expirationSeconds * 1000;
+            return expirationMs;
+
+        } catch (error) {
+            logger.error('Error extrayendo expiración del token:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Verifica si el token tiene al menos minutos de vida restante
+     */
+    isTokenValid(url, minMinutesRemaining = 10) {
+        try {
+            const expirationMs = this.extractTokenExpiration(url);
+            
+            if (!expirationMs) {
+                logger.warn('No se pudo extraer expiración, asumiendo token inválido');
+                return false;
+            }
+
+            const now = Date.now();
+            const remainingMs = expirationMs - now;
+            const remainingMinutes = remainingMs / (60 * 1000);
+
+            logger.info(`Token vence en ${remainingMinutes.toFixed(1)} minutos`);
+            
+            if (remainingMs <= 0) {
+                logger.warn('Token ya expiró');
+                return false;
+            }
+
+            if (remainingMinutes < minMinutesRemaining) {
+                logger.warn(`Token vence pronto (${remainingMinutes.toFixed(1)} min). No se cachea.`);
+                return false;
+            }
+
+            logger.info('Token válido para cachear');
+            return true;
+
+        } catch (error) {
+            logger.error('Error validando token:', error.message);
+            return false;
+        }
+    }
+
+    /**
         try {
             // Buscar patrón: var playbackURL = "...";
             const match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+)["']/);
@@ -72,13 +143,20 @@ class HlsStreamResolver {
                 return '';
             }
 
-            // Guardar en caché
-            this.streamCache.set(streamId, {
-                url: streamUrl,
-                expiresAt: Date.now() + this.CACHE_TTL
-            });
+            // VALIDAR TOKEN: Solo cachear si tiene >10 minutos de vida
+            const isTokenValid = this.isTokenValid(streamUrl, 10);
 
-            logger.info(`Stream URL en caché para stream: ${streamId}`);
+            if (isTokenValid) {
+                // Cachear solo si el token es válido
+                this.streamCache.set(streamId, {
+                    url: streamUrl,
+                    expiresAt: Date.now() + this.CACHE_TTL
+                });
+                logger.info(`Stream URL en caché para stream: ${streamId}`);
+            } else {
+                logger.warn(`Token inválido o próximo a expirar. NO se cachea para: ${streamId}`);
+            }
+
             return streamUrl;
 
         } catch (error) {
