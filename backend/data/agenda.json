@@ -228,26 +228,14 @@
     "streamId": "tudn"
   },
   {
-    "id": 23,
-    "time": "10:00",
-    "title": "UEFA Youth League: Villarreal Sub-19 vs PSG Sub-19",
+    "id": 24,
+    "time": "13:00",
+    "title": "Copa de la Reina: UD Tenerife vs Atletico Madrid",
     "category": "Futbol",
     "status": "En vivo",
     "isLive": true,
     "isFinished": false,
     "isUpcoming": false,
-    "url": "canal.html?stream=disney2",
-    "streamId": "disney2"
-  },
-  {
-    "id": 24,
-    "time": "13:00",
-    "title": "Copa de la Reina: UD Tenerife vs Atletico Madrid",
-    "category": "Futbol",
-    "status": "Pronto",
-    "isLive": false,
-    "isFinished": false,
-    "isUpcoming": true,
     "url": "canal.html?stream=disney5",
     "streamId": "disney5"
   },

@@ -280,7 +280,7 @@ class FutbolLibreApp {
   // Abrir canal en modal
   openChannel(url, name, id) {
     if (id && id !== "undefined") {
-       window.location.href = `/canal?stream=${id}`;
+       window.location.href = `/canal.html?stream=${id}`;
        return;
     }
 
@@ -290,8 +290,8 @@ class FutbolLibreApp {
       const streamParam = urlObj.searchParams.get("stream");
 
       if (streamParam) {
-        // Redirigir a la página del canal usando la ruta limpia
-        window.location.href = `/canal?stream=${streamParam}`;
+        // Redirigir a la página del canal
+        window.location.href = `/canal.html?stream=${streamParam}`;
       } else {
         // Fallback: abrir en nueva ventana
         window.open(url, "_blank");
