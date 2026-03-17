@@ -8,7 +8,7 @@ class CanalPage {
     // Ajustar si en prod usas otro endpoint base
     const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? "http://localhost:8787/api"
-        : "https://satoru123908-futbol-libre-bot.hf.space/api";
+        : "https://futbol-libre-production-5102.up.railway.app/api";
         
     this.streamApiService = new ClientScraperService(API_BASE_URL);
     this.hlsPlayer = null;
