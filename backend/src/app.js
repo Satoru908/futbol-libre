@@ -17,6 +17,9 @@ const app = express();
 // 1. Seguridad: Ocultar headers conocidos y establecer protecciones
 app.use(helmet({
   crossOriginResourcePolicy: false, // Permitir servir video a otros orígenes (CORS)
+  crossOriginEmbedderPolicy: false, // Permitir iframe en Hugging Face
+  frameguard: false,                // Desactivar X-Frame-Options (necesario para iframe HF)
+  contentSecurityPolicy: false      // Evitar que bloquee el iframe de HF
 }));
 
 // 2. Rendimiento: Comprimir respuestas JSON y Texto (ahorra CPU y ancho de banda)
