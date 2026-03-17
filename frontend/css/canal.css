@@ -227,7 +227,7 @@
 .player-offline .btn-back:hover {
   background: var(--primary-dark, #1b5e20);
   transform: translateY(-2px);
-}
+
   left: 0;
   width: 100%;
   height: 100%;
@@ -811,28 +811,8 @@ video::-webkit-media-controls-seek-forward-button {
     margin: 0 auto;
   }
 }
-\ n / *   = = =   I F R A M E   H I J A C K I N G   &   A D - S H I E L D   S T Y L E S   = = =   * / 
- 
- . h i j a c k e d - i f r a m e   {   p o s i t i o n :   a b s o l u t e ;   t o p :   - 6 0 p x ;   l e f t :   0 ;   w i d t h :   1 0 0 % ;   h e i g h t :   c a l c ( 1 0 0 %   +   6 0 p x ) ;   b o r d e r :   n o n e ;   z - i n d e x :   1 ;   } 
- 
- 
-.player-ad-shield {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    /* Dejamos descubiertos los últimos 60px donde está la barra de progreso y volumen original */
-    height: calc(100% - 60px); 
-    z-index: 50; /* Z-INDEX EXAGERADAMENTE ALTO */
-    background: rgba(255, 0, 0, 0.3); /* FONDO ROJO PARA QUE VEAS QUE SÍ FUNCIONA (Luego lo quitamos) */
-    pointer-events: auto !important; /* ROBA TODOS LOS CLICS DE ANUNCIOS */
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    padding-bottom: 20px;
-    color: rgba(255,255,255,0.4);
-    font-size: 14px;
-}
+
+
 
 .shield-active-text {
     background: rgba(0,0,0,0.6);
@@ -847,86 +827,60 @@ video::-webkit-media-controls-seek-forward-button {
     100% { opacity: 0; }
 }
 
+/**
+ * Controles Personalizados del Reproductor
+ * 
+ * Con HTML sanitizado desde el backend, los controles son simples y seguros.
+ * Solo incluimos un botón de pantalla completa para mejorar la UX.
+ */
+
 .custom-player-controls {
     position: absolute;
-    top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 100; /* AÚN MÁS ALTO PARA QUE EL PLAY ESTÉ ARRIBA DE TODO */
-    pointer-events: none; /* Clickeable solo en los botones específicos */
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    justify-content: flex-end;
     align-items: center;
-}
-
-.custom-play-center {
-    pointer-events: auto;
-    background: rgba(0, 0, 0, 0.8);
-    border-radius: 12px;
-    padding: 20px 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    cursor: pointer;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    transition: transform 0.2s, background 0.2s;
-    border: 1px solid #4caf50;
-}
-
-.custom-play-center:hover {
-    transform: scale(1.05);
-    background: rgba(20, 20, 20, 0.95);
-}
-
-.custom-play-center .play-icon {
-    font-size: 40px;
-    color: #4caf50;
-    margin-bottom: 10px;
-}
-
-.custom-control-bar {
-    position: absolute;
-    bottom: 0px; /* Sobre la barra original si se desea, o arriba de los 60px */
-    bottom: 60px; /* Subimos un poco para no tapar el volumen original */
-    width: 100%;
-    padding: 10px 20px;
-    display: flex;
-    justify-content: space-between;
-    pointer-events: none;
-}
-
-.control-left, .control-right {
-    display: flex;
     gap: 10px;
+    padding: 10px;
+    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.5));
+    z-index: 100;
+    pointer-events: none; /* No interfiere con el iframe */
 }
 
-.control-hint {
-    background: rgba(0,0,0,0.5);
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 13px;
-    color: #ccc;
-    pointer-events: none;
-}
-
-.custom-btn {
+.control-btn {
     pointer-events: auto;
     background: rgba(0, 0, 0, 0.7);
     color: white;
-    border: 1px solid rgba(255,255,255,0.2);
-    padding: 8px 15px;
-    border-radius: 5px;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 8px 12px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     display: flex;
     align-items: center;
-    gap: 5px;
-    transition: background 0.2s;
+    justify-content: center;
+    transition: all 0.2s ease;
+    outline: none;
 }
 
-.custom-btn:hover {
-    background: #4caf50;
+.control-btn:hover {
+    background: rgba(76, 175, 80, 0.9);
     border-color: #4caf50;
+    transform: scale(1.08);
+    box-shadow: 0 2px 8px rgba(76, 175, 80, 0.4);
 }
-. h i j a c k e d - i f r a m e   {   p o s i t i o n :   a b s o l u t e ;   t o p :   - 6 0 p x ;   l e f t :   0 ;   w i d t h :   1 0 0 % ;   h e i g h t :   c a l c ( 1 0 0 %   +   6 0 p x ) ;   b o r d e r :   n o n e ;   z - i n d e x :   1 ;   p o i n t e r - e v e n t s :   a u t o   ! i m p o r t a n t ;   } 
- 
- 
+
+.control-btn:active {
+    transform: scale(0.96);
+}
+
+/* Estilos deprecated - mantener para compatibilidad pero aún no visibles */
+.custom-play-center {
+    display: none; /* No requerido en la nueva implementación */
+}
+
+.custom-control-bar {
+    display: none; /* No requerido en la nueva implementación */
+}

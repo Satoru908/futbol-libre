@@ -1,125 +1,169 @@
+import { APP_CONFIG } from '../config/constants.js';
+
+/**
+ * IframePlayerService
+ * 
+ * Servicio encargado de cargar y mostrar streams usando un iframe con HTML sanitizado.
+ * 
+ * Arquitectura:
+ * - Carga HTML desde backend (/api/stream-html-cleaned) que ya tiene anuncios removidos
+ * - No requiere escudo invasivo ya que el HTML está limpio
+ * - Mantiene controles simples para UX intuitiva
+ */
 export class IframePlayerService {
     constructor(containerElement) {
         this.container = containerElement;
         this.iframe = null;
         this.mask = null;
-        this.shield = null;
         this.controls = null;
+        
+        // Configuración
+        this.apiBaseUrl = APP_CONFIG.apiBaseUrl;
     }
 
     /**
-     * Inyecta el iframe recortado con el escudo anti-publicidad
+     * Carga el stream sanitizado en un iframe
+     * 
+     * @param {string} streamId - ID del stream a cargar
+     * @throws {Error} Si falta el contenedor o streamId
      */
     load(streamId) {
-        // En lugar de borrar todo el contenedor (que incluye el loader), escondemos/reemplazamos el video original usando su padre
-        const videoElement = document.getElementById('canalVideo');
-        if (videoElement) {
-            videoElement.style.display = 'none'; // ocultamos old player
+        if (!streamId) {
+            throw new Error('streamId es requerido para cargar el reproductor');
         }
 
-        // Crear máscara principal
+        // Ocultar el elemento de video anterior si existe
+        const videoElement = document.getElementById('canalVideo');
+        if (videoElement) {
+            videoElement.style.display = 'none';
+        }
+
+        // Crear máscara principal que contiene todo
         this.mask = document.createElement('div');
         this.mask.className = 'iframe-mask';
         this.mask.style.position = 'absolute';
         this.mask.style.top = '0';
         this.mask.style.left = '0';
-        this.mask.style.width = '100%';
-        this.mask.style.height = '100%';
+        this.mask.style.right = '0';
+        this.mask.style.bottom = '0';
         this.mask.style.backgroundColor = '#000';
         this.mask.style.overflow = 'hidden';
 
-        // 1. Crear el Iframe normal
-        // Se ha removido el sandbox para asegurar que P2P Media Loader, WebSockets y demás scripts pesados del reproductor no colapsen
+        // Crear iframe que apunta al backend sanitizador
+        // El backend obtiene el HTML de la14hd y remueve scripts maliciosos
         this.iframe = document.createElement('iframe');
-        this.iframe.src = `https://la14hd.com/vivo/canales.php?stream=${streamId}`;
+        this.iframe.src = `${this.apiBaseUrl}/stream-html-cleaned?stream=${encodeURIComponent(streamId)}`;
         this.iframe.setAttribute('allowfullscreen', 'true');
         this.iframe.setAttribute('scrolling', 'no');
         this.iframe.className = 'hijacked-iframe';
+        this.iframe.style.width = '100%';
+        this.iframe.style.height = '100%';
+        this.iframe.style.border = 'none';
 
-        // 2. Crear el escudo protector
-        this.shield = document.createElement('div');
-        this.shield.className = 'player-ad-shield';
-        
-        // 3. Crear nuestros controles visuales
+        // Crear controles personalizados simples
         this._buildCustomControls();
 
-        // Ensamblar
+        // Ensamblar componentes
         this.mask.appendChild(this.iframe);
-        this.mask.appendChild(this.shield);
         this.mask.appendChild(this.controls);
-        
         this.container.appendChild(this.mask);
-        
+
+        // Configurar event listeners
         this._setupEventListeners();
     }
 
+    /**
+     * Construye los controles personalizados del reproductor
+     * 
+     * Nota: El HTML ya está sanitizado desde el backend, así que no necesitamos
+     * escudos invasivos. Solo mantenemos controles básicos para mejorar UX.
+     */
     _buildCustomControls() {
         this.controls = document.createElement('div');
         this.controls.className = 'custom-player-controls';
+        this.controls.style.position = 'absolute';
+        this.controls.style.bottom = '0';
+        this.controls.style.left = '0';
+        this.controls.style.right = '0';
+        this.controls.style.display = 'flex';
+        this.controls.style.justifyContent = 'flex-end';
+        this.controls.style.alignItems = 'center';
+        this.controls.style.gap = '10px';
+        this.controls.style.padding = '10px';
+        this.controls.style.background = 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.5))';
+        this.controls.style.zIndex = '100';
 
-        // Instrucción visual inicial
         this.controls.innerHTML = `
-            <div class="custom-play-center" id="customPlayBtn">
-                <div class="play-icon">▶</div>
-                <span>Haz click aquí para activar reproductor original</span>
-            </div>
-            
-            <div class="custom-control-bar">
-                <div class="control-left">
-                     <!-- El volumen lo maneja la barra inferior original que dejamos destapada -->
-                     <span class="control-hint">Volumen en barra inferior</span>
-                </div>
-                <div class="control-right">
-                    <button class="custom-btn" id="customFullscreenBtn">
-                        ⛶ Pantalla Completa
-                    </button>
-                </div>
-            </div>
+            <button class="control-btn" id="customFullscreenBtn" title="Pantalla completa">
+                <span style="font-size: 18px;">⛶</span>
+            </button>
         `;
     }
 
+    /**
+     * Configura los event listeners de los controles
+     * 
+     * Con HTML sanitizado, la interacción es mucho más segura.
+     */
     _setupEventListeners() {
-        const playBtn = this.controls.querySelector('#customPlayBtn');
         const fsBtn = this.controls.querySelector('#customFullscreenBtn');
 
-        // Al hacer click en nuestro play gigante: 
-        // Desaparecemos todo nuestro escudo durante 1 segundo para que el usuario pueda darle click al "Play" real del video sin estorbos, 
-        // y luego volvemos a poner el escudo para frenar los popups durante el partido.
-        playBtn.addEventListener('click', () => {
-            playBtn.style.display = 'none';
-            this.shield.style.pointerEvents = 'none'; // Permitir click passthrough al iframe vital
-            
-            // Re-activar escudo anti-clickjacking en 3 segundos (tiempo suficiente para dar "Play" original)
-            setTimeout(() => {
-                this.shield.style.pointerEvents = 'auto'; // Bloquea todo otra vez
-                this.shield.innerHTML = '<div class="shield-active-text">🛡️ Bloqueo de Anuncios Activo. Usa la barra inferior para opciones.</div>';
-                
-                // Ocultamos el mensaje sutilmente después de unos segundos
-                setTimeout(() => {
-                    this.shield.innerHTML = '';
-                }, 4000);
-            }, 3000);
-        });
+        if (fsBtn) {
+            fsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this._toggleFullscreen();
+            });
+        }
 
-        // Pantalla completa forzada sobre nuestro contenedor propio (encierra el iframe dentro de nuestra web)
-        fsBtn.addEventListener('click', () => {
-            if (!document.fullscreenElement) {
-                if (this.container.requestFullscreen) {
-                    this.container.requestFullscreen();
-                } else if (this.container.webkitRequestFullscreen) { /* Safari */
-                    this.container.webkitRequestFullscreen();
-                } else if (this.container.msRequestFullscreen) { /* IE11 */
-                    this.container.msRequestFullscreen();
-                }
-            } else {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                }
-            }
-        });
+        // Log de carga exitosa
+        if (this.iframe) {
+            this.iframe.onload = () => {
+                console.log('✓ Stream cargado exitosamente desde backend sanitizado');
+            };
+
+            this.iframe.onerror = () => {
+                console.error('✗ Error al cargar stream desde backend');
+            };
+        }
     }
 
+    /**
+     * Alterna el modo de pantalla completa
+     */
+    _toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            if (this.container.requestFullscreen) {
+                this.container.requestFullscreen();
+            } else if (this.container.webkitRequestFullscreen) { 
+                // Safari
+                this.container.webkitRequestFullscreen();
+            } else if (this.container.msRequestFullscreen) { 
+                // IE11
+                this.container.msRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    /**
+     * Limpia los recursos del reproductor
+     */
     destroy() {
+        if (this.iframe) {
+            this.iframe.src = 'about:blank';
+            this.iframe = null;
+        }
+
+        if (this.mask && this.mask.parentNode) {
+            this.mask.parentNode.removeChild(this.mask);
+            this.mask = null;
+        }
+
+        if (this.controls && this.controls.parentNode) {
+            this.controls.parentNode.removeChild(this.controls);
+            this.controls = null
         if (this.container) {
             this.container.innerHTML = '';
         }
