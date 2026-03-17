@@ -21,7 +21,7 @@ export class HlsPlayerService {
     }
 
     /**
-     * Carga stream usando HLS.js
+     * Carga stream usando HLS.js con P2P Media Loader
      */
     _loadWithHls(playbackUrl, resolve, reject) {
         if (this.hls) {
@@ -29,11 +29,21 @@ export class HlsPlayerService {
         }
 
         const hlsConfig = this._getHlsConfig();
-        this.hls = new Hls(hlsConfig);
-
-        this._setupP2P();
+        
+        // Usar P2P Media Loader si está disponible
+        if (typeof p2pml !== 'undefined' && p2pml.hlsjs.Engine.isSupported()) {
+            const engine = new p2pml.hlsjs.Engine();
+            this.hls = new Hls({
+                ...hlsConfig,
+                liveSyncDurationCount: 7,
+                loader: engine.createLoaderClass()
+            });
+            p2pml.hlsjs.initHlsJsPlayer(this.hls);
+        } else {
+            this.hls = new Hls(hlsConfig);
+        }
+        
         this._attachHlsEvents(resolve, reject);
-
         this.hls.loadSource(playbackUrl);
         this.hls.attachMedia(this.video);
     }
@@ -60,48 +70,8 @@ export class HlsPlayerService {
             liveSyncDurationCount: 3,
             liveMaxLatencyDurationCount: 10,
             liveDurationInfinity: true,
-            backBufferLength: 0,
-            loader: undefined
+            backBufferLength: 0
         };
-    }
-
-    /**
-     * Configura P2P Media Loader si está disponible
-     */
-    _setupP2P() {
-        if (!window.p2pml || !window.p2pml.hlsjs) return;
-
-        try {
-            const p2pConfig = {
-                loader: {
-                    trackerAnnounce: [
-                        'wss://tracker.openwebtorrent.com',
-                        'wss://tracker.btorrent.xyz',
-                        'wss://tracker.novage.com.ua',
-                        'wss://tracker.files.fm:7073/announce'
-                    ],
-                    cachedSegmentExpiration: 86400000,
-                    cachedSegmentsCount: 500,
-                    requiredSegmentsPriority: 2,
-                    httpDownloadProbability: 0.06,
-                    httpDownloadProbabilityInterval: 1000,
-                    httpDownloadProbabilitySkipIfNoPeers: true,
-                    p2pDownloadMaxPriority: 50,
-                    httpFailedSegmentTimeout: 500,
-                    simultaneousP2PDownloads: 20,
-                    simultaneousHttpDownloads: 2
-                }
-            };
-
-            const engine = new window.p2pml.hlsjs.Engine(p2pConfig);
-            this.hls.config.loader = engine.createLoaderClass();
-
-            if (window.p2pml.hlsjs.initHlsJsPlayer) {
-                window.p2pml.hlsjs.initHlsJsPlayer(this.hls);
-            }
-        } catch (e) {
-            console.warn('P2P setup warning:', e);
-        }
     }
 
     /**
@@ -130,11 +100,11 @@ export class HlsPlayerService {
     _handleFatalError(data, reject) {
         switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
-                console.error('Fatal network error, trying to recover');
+                console.error('Network error, trying to recover');
                 this.hls.startLoad();
                 break;
             case Hls.ErrorTypes.MEDIA_ERROR:
-                console.error('Fatal media error, trying to recover');
+                console.error('Media error, trying to recover');
                 this.hls.recoverMediaError();
                 break;
             default:

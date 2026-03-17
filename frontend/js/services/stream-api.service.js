@@ -26,7 +26,7 @@ export class StreamApiService {
 
             return data;
         } catch (error) {
-            console.error('Stream API Error:', error);
+            console.error('Error fetching stream:', error);
             throw error;
         }
     }

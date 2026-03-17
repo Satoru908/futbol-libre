@@ -1,3 +1,12 @@
+/**
+ * HLS Proxy Service
+ * Maneja el proxy de playlists y segmentos HLS
+ * 
+ * NOTA: Este servicio se usa temporalmente mientras se resuelven
+ * los problemas de bloqueo de IPs de Cloudflare Workers por parte
+ * de los servidores upstream (error 403).
+ */
+
 const axios = require('axios');
 const env = require('../config/env');
 const logger = require('../utils/logger');

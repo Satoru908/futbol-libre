@@ -69,8 +69,7 @@ class StreamUrlService {
     return {
       streamId,
       url,
-      expiresAt,
-      requiresProxy: true
+      expiresAt
     };
   }
 
