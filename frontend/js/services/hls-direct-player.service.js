@@ -193,7 +193,8 @@ export class HlsDirectPlayerService {
 
             this.hls = new Hls({
                 debug: false,
-                enableWorker: true,,
+                enableWorker: true,
+                lowLatencyMode: true,
                 // Configurar headers personalizados para descargas
                 xhrSetup: (xhr, url) => {
                     // Agregar headers necesarios para acceder a FuboHD
@@ -204,7 +205,6 @@ export class HlsDirectPlayerService {
                         // User-Agent se configura a nivel del navegador, no en XHR
                     }
                 }
-                lowLatencyMode: true
             });
 
             this.hls.attachMedia(this.video);
@@ -239,24 +239,24 @@ export class HlsDirectPlayerService {
     /**
      * Reintentar con una URL nueva del backend
      */
-    async _retryWistreamData = await this._fetchStreamUrl(streamId);
+    async _retryWithNewUrl(streamId) {
+        if (this.retryCount >= this.maxRetries) {
+            console.error('[HLS DEBUG] Se alcanzó el máximo de reintentos');
+            return;
+        }
+
+        this.retryCount++;
+        console.log(`[HLS DEBUG] Reintentando con URL nueva (intento ${this.retryCount}/${this.maxRetries})...`);
+
+        try {
+            // Obtener URL nueva
+            const streamData = await this._fetchStreamUrl(streamId);
             
             if (!streamData || !streamData.url) {
                 throw new Error('No se pudo obtener URL nueva');
             }
 
             const newStreamUrl = streamData.url;
-        this.retryCount++;
-        console.log(`[HLS DEBUG] Reintentando con URL nueva (intento ${this.retryCount}/${this.maxRetries})...`);
-
-        try {
-            // Obtener URL nueva
-            const newStreamUrl = await this._fetchStreamUrl(streamId);
-            
-            if (!newStreamUrl) {
-                throw new Error('No se pudo obtener URL nueva');
-            }
-
             console.log('[HLS DEBUG] URL nueva obtenida, cargando...');
 
             // Limpiar HLS anterior
