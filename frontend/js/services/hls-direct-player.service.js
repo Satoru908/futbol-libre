@@ -22,6 +22,9 @@ export class HlsDirectPlayerService {
         this.hls = null;
         this.controls = null;
         this.apiBaseUrl = APP_CONFIG.apiBaseUrl;
+        this.currentStreamId = null;
+        this.retryCount = 0;
+        this.maxRetries = 3;
     }
 
     /**
@@ -33,12 +36,15 @@ export class HlsDirectPlayerService {
             throw new Error('streamId es requerido');
         }
 
+        this.currentStreamId = streamId;
+        this.retryCount = 0;
+
         console.log('[HLS DEBUG] Cargando stream:', streamId);
         console.log('[HLS DEBUG] API Base URL:', this.apiBaseUrl);
 
         try {
-            // Paso 1: Obtener URL del stream desde el backend
-            const streamUrl = await this._fetchStreamUrl(streamId);
+            // Paso 1: Obtener URL del stream desde el backend (con reintentos)
+            const streamUrl = await this._fetchStreamUrlWithRetry(streamId);
             
             if (!streamUrl) {
                 throw new Error('No se pudo obtener la URL del stream');
@@ -50,7 +56,7 @@ export class HlsDirectPlayerService {
             this._buildVideoElement();
 
             // Paso 3: Inicializar hls.js
-            this._initializeHls(streamUrl);
+            this._initializeHls(streamUrl, streamId);
 
             console.log('[HLS DEBUG] Player inicializado correctamente');
 
@@ -58,6 +64,42 @@ export class HlsDirectPlayerService {
             console.error('[HLS DEBUG] Error cargando stream:', error.message);
             throw error;
         }
+    }
+
+    /**
+     * Obtiene la URL del stream con reintentos automáticos
+     */
+    async _fetchStreamUrlWithRetry(streamId, attempt = 1) {
+        try {
+            const url = await this._fetchStreamUrl(streamId);
+            if (url) {
+                console.log(`[HLS DEBUG] URL obtenida en intento ${attempt}`);
+                return url;
+            }
+            
+            // Si no hay URL pero tampoco error, reintentar
+            if (attempt < this.maxRetries) {
+                console.log(`[HLS DEBUG] Reintentando obtener URL (intento ${attempt + 1}/${this.maxRetries})...`);
+                await this._delay(1000 * attempt); // Espera exponencial
+                return this._fetchStreamUrlWithRetry(streamId, attempt + 1);
+            }
+            
+            return null;
+        } catch (error) {
+            if (attempt < this.maxRetries) {
+                console.log(`[HLS DEBUG] Error en intento ${attempt}, reintentando...`);
+                await this._delay(1000 * attempt);
+                return this._fetchStreamUrlWithRetry(streamId, attempt + 1);
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Delay helper
+     */
+    _delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     /**
@@ -77,44 +119,95 @@ export class HlsDirectPlayerService {
             const data = await response.json();
             console.log('[HLS DEBUG] Stream URL response:', data);
 
-            return data.url || null;
+            return data.url , streamId) {
+        // Si el navegador soporta HLS nativo (como Safari)
+        if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
+            console.log('[HLS DEBUG] Usando HLS nativo del navegador');
+            this.video.src = streamUrl;
+            
+            // Listener para errores de network en navegador nativo
+            this.video.addEventListener('error', () => {
+                const error = this.video.error;
+                if (error && error.code === error.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+                    console.error('[HLS DEBUG] Error 403 o URL inválida, reintentando...');
+                    this._retryWithNewUrl(streamId);
+                }
+            });
+        } else {
+            // Usar hls.js para otros navegadores
+            if (typeof Hls === 'undefined') {
+                console.error('[HLS DEBUG] hls.js no está cargado');
+                throw new Error('hls.js library is required but not loaded');
+            }
 
-        } catch (error) {
-            console.error('[HLS DEBUG] Error fetching stream URL:', error.message);
-            return null;
+            this.hls = new Hls({
+                debug: false,
+                enableWorker: true,
+                lowLatencyMode: true
+            });
+
+            this.hls.attachMedia(this.video);
+
+            // Event listeners
+            this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                console.log('[HLS DEBUG] Manifest cargado, iniciando reproducción');
+                // Auto-play opcional
+                // this.video.play();
+            });
+
+            this.hls.on(Hls.Events.ERROR, (event, data) => {
+                if (data.fatal) {
+                    // Si es error de red (potencialmente 403), reintentar con URL nueva
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                        console.error('[HLS DEBUG] Error de red (posible 403):', data);
+                        this._retryWithNewUrl(streamId);
+                    } else {
+                        console.error('[HLS DEBUG] Error fatal en HLS:', data);
+                        this._handleHlsError(data);
+                    }
+                } else {
+                    console.warn('[HLS DEBUG] Error HLS (recuperable):', data);
+                }
+            });
+
+            // Cargar stream
+            this.hls.loadSource(streamUrl);
         }
     }
 
     /**
-     * Construye el elemento video con controles
+     * Reintentar con una URL nueva del backend
      */
-    _buildVideoElement() {
-        // Limpiar contenedor
-        this.container.innerHTML = '';
+    async _retryWithNewUrl(streamId) {
+        if (this.retryCount >= this.maxRetries) {
+            console.error('[HLS DEBUG] Se alcanzó el máximo de reintentos');
+            return;
+        }
 
-        // Crear elemento video
-        this.video = document.createElement('video');
-        this.video.id = 'hls-video-player';
-        this.video.style.width = '100%';
-        this.video.style.height = '100%';
-        this.video.style.background = '#000';
-        this.video.controls = true;
-        this.video.autoplay = false;
+        this.retryCount++;
+        console.log(`[HLS DEBUG] Reintentando con URL nueva (intento ${this.retryCount}/${this.maxRetries})...`);
 
-        // Crear wrapper con posición relativa para controles personalizados
-        const wrapper = document.createElement('div');
-        wrapper.style.position = 'relative';
-        wrapper.style.width = '100%';
-        wrapper.style.height = '100%';
-        wrapper.appendChild(this.video);
+        try {
+            // Obtener URL nueva
+            const newStreamUrl = await this._fetchStreamUrl(streamId);
+            
+            if (!newStreamUrl) {
+                throw new Error('No se pudo obtener URL nueva');
+            }
 
-        this.container.appendChild(wrapper);
+            console.log('[HLS DEBUG] URL nueva obtenida, cargando...');
 
-        console.log('[HLS DEBUG] Elemento video creado');
-    }
+            // Limpiar HLS anterior
+            if (this.hls) {
+                this.hls.destroy();
+                this.hls = null;
+            }
 
-    /**
-     * Inicializa hls.js para reproducir el stream
+            // Reinicializar con la nueva URL
+            this._initializeHls(newStreamUrl, streamId);
+
+        } catch (error) {
+            console.error('[HLS DEBUG] Error reintentando:', error.messageel stream
      */
     _initializeHls(streamUrl) {
         // Si el navegador soporta HLS nativo (como Safari)

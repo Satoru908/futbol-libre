@@ -14,7 +14,7 @@ const logger = require('../utils/logger');
 class HlsStreamResolver {
     constructor() {
         this.streamCache = new Map();
-        this.CACHE_TTL = 5 * 60 * 1000; // 5 minutos (menos que el token de 5 horas)
+        this.CACHE_TTL = 2 * 60 * 1000; // 2 minutos (Token FuboHD ~20min, caché corto para frescura)
     }
 
     /**

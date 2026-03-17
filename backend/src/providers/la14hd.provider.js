@@ -10,7 +10,7 @@ class La14HdProvider {
             'Referer': 'https://la14hd.com/'
         };
         this.htmlCache = new Map();
-        this.CACHE_TTL = 3 * 60 * 1000; // 3 minutos de caché para evitar requests masivos
+        this.CACHE_TTL = 1 * 60 * 1000; // 1 minuto de caché (Token FuboHD ~20min, caché corto para frescura)
     }
 
     async fetchHtml(streamId) {
