@@ -1,6 +1,8 @@
 // Configuración de la aplicación
 import { APP_CONFIG } from './config/constants.js';
 import { MetaConfig } from './config/meta-config.js';
+import { NavigationManager } from './services-miniapp/navigation-manager.js';
+import { TelegramAwareApiService } from './services-miniapp/telegram-aware-api.service.js';
 
 // Estado global de la aplicación
 const AppState = {
@@ -18,9 +20,32 @@ class FutbolLibreApp {
 
   async init() {
     try {
+      // Inicializar servicios de Telegram (NO bloquear si fallan)
+      NavigationManager.initialize()
+        .then(isInTelegram => {
+          if (isInTelegram) {
+            console.log('✅ Aplicación ejecutándose como Telegram Mini App');
+          }
+        })
+        .catch(err => console.warn('⚠️ Error inicializando NavigationManager:', err.message));
+      
+      TelegramAwareApiService.initialize()
+        .catch(err => console.warn('⚠️ Error inicializando TelegramAwareApiService:', err.message));
+      
+      // Escuchar eventos de navegación de Telegram
+      window.addEventListener('telegram-navigate-canal', (e) => {
+        this.navigateToCanal(e.detail.stream);
+      });
+      window.addEventListener('telegram-navigate-home', () => {
+        this.renderChannels();
+        AppState.currentFilter = 'all';
+        AppState.filteredChannels = [...AppState.channels];
+      });
+      
       // Update meta tags and analytics with environment configuration
       MetaConfig.updateMetaTags();
       
+      // Cargar canales (INDEPENDIENTE de Telegram)
       await this.loadChannels();
       this.setupEventListeners();
 
@@ -281,7 +306,11 @@ class FutbolLibreApp {
   // Abrir canal en modal
   openChannel(url, name, id) {
     if (id && id !== "undefined") {
-       window.location.href = `/canal.html?stream=${id}`;
+       if (NavigationManager.isInTelegram) {
+         NavigationManager.navigate(`/canal.html?stream=${id}`);
+       } else {
+         window.location.href = `/canal.html?stream=${id}`;
+       }
        return;
     }
 
@@ -292,7 +321,11 @@ class FutbolLibreApp {
 
       if (streamParam) {
         // Redirigir a la página del canal
-        window.location.href = `/canal.html?stream=${streamParam}`;
+        if (NavigationManager.isInTelegram) {
+          NavigationManager.navigate(`/canal.html?stream=${streamParam}`);
+        } else {
+          window.location.href = `/canal.html?stream=${streamParam}`;
+        }
       } else {
         // Fallback: abrir en nueva ventana
         window.open(url, "_blank");
@@ -469,6 +502,11 @@ class FutbolLibreApp {
       const dateString = now.toLocaleDateString("es-ES", options);
       dateBanner.textContent = `Agenda - ${dateString}`;
     }
+  }
+
+  // Navegar a un canal (desde evento de Telegram)
+  navigateToCanal(stream) {
+    window.location.href = `/canal.html?stream=${stream}`;
   }
 }
 

@@ -1,5 +1,7 @@
 import { ChannelDataService } from "./services/channel-data.service.js";
 import { APP_CONFIG } from "./config/constants.js";
+import { NavigationManager } from "./services-miniapp/navigation-manager.js";
+import { TelegramAwareApiService } from "./services-miniapp/telegram-aware-api.service.js";
 
 class CanalPage {
   constructor() {
@@ -11,16 +13,35 @@ class CanalPage {
   }
 
   async init() {
+    // Inicializar servicios de Telegram (NO bloquear si fallan)
+    NavigationManager.initialize()
+      .then(isInTelegram => {
+        if (isInTelegram) {
+          console.log('✅ Página de canal ejecutándose como Telegram Mini App');
+        }
+      })
+      .catch(err => console.warn('⚠️ Error inicializando NavigationManager:', err.message));
+    
+    TelegramAwareApiService.initialize()
+      .catch(err => console.warn('⚠️ Error inicializando TelegramAwareApiService:', err.message));
+    
+    // Escuchar cambios de canal desde Telegram
+    window.addEventListener('telegram-navigate-canal', (e) => {
+      this.streamId = e.detail.stream;
+      this.reload();
+    });
+    
     this.streamId = new URLSearchParams(window.location.search).get("stream");
 
     if (!this.streamId) {
-      this._showError('No se especificó un canal. <a href="index.html" style="color:#4caf50">Volver al inicio</a>');
+      this._showError('No se especificó un canal. <a href="/index.html" style="color:#4caf50">Volver al inicio</a>');
       return;
     }
 
     console.log('[CANAL] Stream ID:', this.streamId);
     console.log('[CANAL] API Base URL:', APP_CONFIG.apiBaseUrl);
     
+    // Cargar datos del canal
     await this.loadChannelMetadata();
     this.setupPlayer();
     this._setupEventListeners();
@@ -184,30 +205,6 @@ class CanalPage {
       background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.5));
       z-index: 100;
     `;
-
-    // Botón fullscreen
-    const fsBtn = document.createElement('button');
-    fsBtn.className = 'control-btn';
-    fsBtn.id = 'customFullscreenBtn';
-    fsBtn.title = 'Pantalla completa';
-    fsBtn.innerHTML = '<span style="font-size: 18px;">⛶</span>';
-    fsBtn.style.cssText = `
-      background: rgba(255,255,255,0.3);
-      border: none;
-      color: white;
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    `;
-
-    fsBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this._toggleFullscreen(container);
-    });
-
-    controls.appendChild(fsBtn);
     
     // Ensamblar
     mask.appendChild(this.iframe);
@@ -244,7 +241,7 @@ class CanalPage {
           <div class="offline-icon">😴</div>
           <h3>Canal Fuera de Línea</h3>
           <p>Este canal no está transmitiendo en este momento.</p>
-          <a href="index.html" class="btn-back">Ver otros canales</a>
+          <a href="/index.html" class="btn-back">Ver otros canales</a>
         </div>
       `;
     }
@@ -290,12 +287,58 @@ class CanalPage {
    * Configura event listeners para botones
    */
   _setupEventListeners() {
+    // Back button
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {
-      backBtn.addEventListener('click', () => {
-        window.location.href = 'index.html';
+      backBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Siempre navegar a index completamente 
+        // No usar NavigationManager.goBack() porque eso es para SPA en Telegram
+        window.location.replace('/index.html');
       });
     }
+
+    // Logo: también navega a index
+    const logoLink = document.querySelector('.logo a');
+    if (logoLink) {
+      logoLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.replace('/index.html');
+      });
+    }
+
+    // Botón "Volver a Canales" (btn-secondary)
+    const backLink = document.querySelector('.btn-secondary');
+    if (backLink && backLink.getAttribute('href') === '/index.html') {
+      backLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        window.location.replace('/index.html');
+      });
+    }
+
+    // Botón Pantalla Completa
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+    if (fullscreenBtn) {
+      fullscreenBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const playerContainer = document.querySelector('.player-container');
+        if (playerContainer) {
+          this._toggleFullscreen(playerContainer);
+        }
+      });
+    }
+  }
+
+  /**
+   * Recarga los datos del canal (usado cuando hay cambio via Telegram)
+   */
+  async reload() {
+    await this.loadChannelMetadata();
+    this.setupPlayer();
   }
 }
 

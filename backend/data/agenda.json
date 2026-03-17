@@ -132,66 +132,6 @@
     "streamId": "tudn"
   },
   {
-    "id": 16,
-    "time": "15:00",
-    "title": "UEFA Champions League: Chelsea vs PSG",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=espn2",
-    "streamId": "espn2"
-  },
-  {
-    "id": 17,
-    "time": "15:00",
-    "title": "UEFA Champions League: Chelsea vs PSG",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=disney7",
-    "streamId": "disney7"
-  },
-  {
-    "id": 18,
-    "time": "15:00",
-    "title": "UEFA Champions League: Chelsea vs PSG",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=foxsports",
-    "streamId": "foxsports"
-  },
-  {
-    "id": 19,
-    "time": "15:00",
-    "title": "UEFA Champions League: Chelsea vs PSG",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=tudn",
-    "streamId": "tudn"
-  },
-  {
-    "id": 20,
-    "time": "15:00",
-    "title": "League One: Barnsley vs Wigan Athletic",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=disney9",
-    "streamId": "disney9"
-  },
-  {
     "id": 21,
     "time": "17:00",
     "title": "Liga Profesional: Lanús vs Newell's Old Boys",
@@ -240,67 +180,7 @@
     "streamId": "tudn"
   },
   {
-    "id": 27,
-    "time": "15:00",
-    "title": "Liga de Campeones de la UEFA: Manchester City vs Real Madrid",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=espn",
-    "streamId": "espn"
-  },
-  {
-    "id": 28,
-    "time": "15:00",
-    "title": "Liga de Campeones de la UEFA: Manchester City vs Real Madrid",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=tudn",
-    "streamId": "tudn"
-  },
-  {
-    "id": 29,
-    "time": "15:00",
-    "title": "Liga de Campeones de la UEFA: Manchester City vs Real Madrid",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=disney8",
-    "streamId": "disney8"
-  },
-  {
-    "id": 31,
-    "time": "15:00",
-    "title": "UEFA Champions League: Arsenal vs Bayer Leverkusen",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=espn5",
-    "streamId": "espn5"
-  },
-  {
     "id": 32,
-    "time": "15:00",
-    "title": "UEFA Champions League: Arsenal vs Bayer Leverkusen",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=disney6",
-    "streamId": "disney6"
-  },
-  {
-    "id": 33,
     "time": "16:00",
     "title": "Segunda División: Tacuarembó vs La Luz",
     "category": "Futbol",
@@ -312,7 +192,7 @@
     "streamId": "disney1"
   },
   {
-    "id": 34,
+    "id": 33,
     "time": "17:00",
     "title": "Copa de Brasil: Nova Iguaçu vs Fortaleza",
     "category": "Futbol",

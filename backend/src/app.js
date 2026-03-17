@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const env = require('./config/env');
 const apiRoutes = require('./routes/api.routes');
 const requestLogger = require('./middlewares/request-logger.middleware');
@@ -32,7 +33,11 @@ app.use(compression({
 app.use(express.json());
 app.use(requestLogger);
 
-// Routes
+// 4. Servir archivos estáticos del frontend
+const frontendPath = path.join(__dirname, '../../frontend');
+app.use(express.static(frontendPath));
+
+// 5. Routes API
 app.use('/api', apiRoutes);
 
 // Error handler
