@@ -24,6 +24,11 @@ class HlsStreamResolver {
      */
     extractTokenExpiration(url) {
         try {
+            if (!url || typeof url !== 'string') {
+                logger.warn('URL inválida o vacía para extraer token');
+                return null;
+            }
+
             const tokenMatch = url.match(/token=([^&]+)/);
             if (!tokenMatch || !tokenMatch[1]) {
                 logger.warn('No se encontró token en URL');
@@ -35,19 +40,20 @@ class HlsStreamResolver {
             
             // Formato esperado: HASH(40 chars)-XX(2 chars)-EXPIRATION(10 digits)-ISSUED(10 digits)
             if (parts.length < 4) {
-                logger.warn('Formato de token inválido');
+                logger.warn(`Formato de token inválido (${parts.length} partes): ${token}`);
                 return null;
             }
 
-            // Última parte es la fecha de expiración (en segundos)
-            const expirationSeconds = parseInt(parts[2], 10);
+            // Acceder a la parte antes de la última (EXPIRATION)
+            const expirationSeconds = parseInt(parts[parts.length - 2], 10);
             
-            if (isNaN(expirationSeconds)) {
-                logger.warn('No se pudo parsear expiración del token');
+            if (isNaN(expirationSeconds) || expirationSeconds < 1000000000) {
+                logger.warn(`Expiración inválida: ${parts[parts.length - 2]}`);
                 return null;
             }
 
             const expirationMs = expirationSeconds * 1000;
+            logger.info(`Token expira en ${new Date(expirationMs).toISOString()}`);
             return expirationMs;
 
         } catch (error) {
@@ -61,10 +67,15 @@ class HlsStreamResolver {
      */
     isTokenValid(url, minMinutesRemaining = 10) {
         try {
+            if (!url || typeof url !== 'string') {
+                logger.warn('URL inválida para validar token');
+                return false;
+            }
+
             const expirationMs = this.extractTokenExpiration(url);
             
             if (!expirationMs) {
-                logger.warn('No se pudo extraer expiración, asumiendo token inválido');
+                logger.info('No se pudo extraer expiración, considerando token inválido');
                 return false;
             }
 
@@ -80,7 +91,7 @@ class HlsStreamResolver {
             }
 
             if (remainingMinutes < minMinutesRemaining) {
-                logger.warn(`Token vence pronto (${remainingMinutes.toFixed(1)} min). No se cachea.`);
+                logger.warn(`Token vence muy pronto (${remainingMinutes.toFixed(1)} min). No se cachea.`);
                 return false;
             }
 
@@ -94,6 +105,11 @@ class HlsStreamResolver {
     }
 
     /**
+     * Extrae la URL del stream (playbackURL) desde el HTML
+     * @param {string} html - HTML del reproductor
+     * @returns {string|null} - URL del stream o null si no encuentra
+     */
+    extractStreamUrl(html) {
         try {
             // Buscar patrón: var playbackURL = "...";
             const match = html.match(/var\s+playbackURL\s*=\s*["']([^"']+)["']/);
@@ -144,6 +160,7 @@ class HlsStreamResolver {
             }
 
             // VALIDAR TOKEN: Solo cachear si tiene >10 minutos de vida
+            // Si no se puede validar el token, igualmente devolver URL (frontend manejará reintentos si es necesario)
             const isTokenValid = this.isTokenValid(streamUrl, 10);
 
             if (isTokenValid) {
@@ -152,15 +169,16 @@ class HlsStreamResolver {
                     url: streamUrl,
                     expiresAt: Date.now() + this.CACHE_TTL
                 });
-                logger.info(`Stream URL en caché para stream: ${streamId}`);
+                logger.info(`Stream URL en caché (token válido) para: ${streamId}`);
             } else {
-                logger.warn(`Token inválido o próximo a expirar. NO se cachea para: ${streamId}`);
+                logger.warn(`Token inválido/próximo a expirar o no se pudo validar. Devolviendo URL sin cachear para: ${streamId}`);
             }
 
             return streamUrl;
 
         } catch (error) {
             logger.error(`Error obteniendo stream URL para ${streamId}:`, error.message);
+            logger.error('Stack trace:', error.stack);
             return '';
         }
     }
