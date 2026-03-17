@@ -28,10 +28,10 @@ export class IframePlayerService {
         this.mask.style.backgroundColor = '#000';
         this.mask.style.overflow = 'hidden';
 
-        // 1. Crear el Iframe con políticas muy estrictas (Sandbox Anti-Ads)
+        // 1. Crear el Iframe normal
+        // Se ha removido el sandbox para asegurar que P2P Media Loader, WebSockets y demás scripts pesados del reproductor no colapsen
         this.iframe = document.createElement('iframe');
         this.iframe.src = `https://la14hd.com/vivo/canales.php?stream=${streamId}`;
-        this.iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms');
         this.iframe.setAttribute('allowfullscreen', 'true');
         this.iframe.setAttribute('scrolling', 'no');
         this.iframe.className = 'hijacked-iframe';
