@@ -93,7 +93,10 @@ router.get('/stream-html-cleaned', async (req, res, next) => {
     // Retorna HTML limpio con headers apropiados
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('X-Content-Type-Options', 'nosniff'); // Prevenir MIME type sniffing
-    res.setHeader('X-Frame-Options', 'SAMEORIGIN'); // Permitir iframe de este origen
+    // IMPORTANTE: NO setear X-Frame-Options restrictivo aquí
+    // El HTML está sanitizado, puede cargarse desde cualquier origen
+    // Si necesitas restricción, usa ALLOWALL en lugar de SAMEORIGIN
+    res.removeHeader('X-Frame-Options'); // Remover cualquier restricción de iframe
     res.setHeader('Cache-Control', 'public, max-age=1800'); // Cache por 30 minutos
 
     logger.info(`HTML sanitizado entregado para stream: ${stream}`);

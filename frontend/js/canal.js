@@ -1,5 +1,6 @@
 import { ChannelDataService } from "./services/channel-data.service.js";
 import { IframePlayerService } from "./services/iframe-player.service.js";
+import { APP_CONFIG } from "./config/constants.js";
 
 class CanalPage {
   constructor() {
@@ -18,14 +19,20 @@ class CanalPage {
       return;
     }
 
+    console.log('[CANAL DEBUG] Stream ID:', this.streamId);
+    console.log('[CANAL DEBUG] API Base URL:', APP_CONFIG.apiBaseUrl);
+    
     await this.loadChannelMetadata();
     this.setupPlayer();
     this._setupEventListeners();
   }
 
   async loadChannelMetadata() {
+    console.log('[CANAL DEBUG] Cargando metadatos del canal...');
     const channel = await this.channelDataService.getChannelByStream(this.streamId);
     this.currentChannel = channel;
+
+    console.log('[CANAL DEBUG] Canal encontrado:', channel);
 
     if (channel) {
       this._updateChannelUI(channel);
@@ -96,8 +103,12 @@ class CanalPage {
     }
 
     const container = document.querySelector('.player-container');
-    if (!container) return;
+    if (!container) {
+      console.error('[CANAL DEBUG] No se encontró .player-container en el DOM');
+      return;
+    }
 
+    console.log('[CANAL DEBUG] Configurando player...');
     this.iframePlayer = new IframePlayerService(container);
     this._showLoading(true);
 
@@ -107,14 +118,23 @@ class CanalPage {
       
       // Ocultar loading cuando el iframe termine de cargar
       this.iframePlayer.iframe.onload = () => {
+        console.log('[IFRAME DEBUG] Iframe cargado exitosamente');
+        this._showLoading(false);
+      };
+      
+      this.iframePlayer.iframe.onerror = () => {
+        console.error('[IFRAME DEBUG] Error cargando iframe');
         this._showLoading(false);
       };
       
       // Fallback por si acaso
-      setTimeout(() => this._showLoading(false), 3000);
+      setTimeout(() => {
+        console.log('[CANAL DEBUG] Timeout: ocultando loading (fallback)');
+        this._showLoading(false);
+      }, 5000);
       
     } catch (error) {
-      console.error("Error loading stream:", error);
+      console.error("[CANAL DEBUG] Error loading stream:", error);
       this._showLoading(false);
       this._showPlayerError(error.message);
     }

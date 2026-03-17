@@ -50,7 +50,8 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.header('X-Frame-Options', 'ALLOWALL'); // Forzar permiso de iframes
+  // NO setear X-Frame-Options aquí - dejar que cada endpoint lo controle
+  // Esto permite que el HTML sanitizado se cargue en iframes desde cualquier origen
   
   if (req.method === 'OPTIONS') {
       return res.status(200).end();

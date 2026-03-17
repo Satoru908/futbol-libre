@@ -32,6 +32,9 @@ export class IframePlayerService {
             throw new Error('streamId es requerido para cargar el reproductor');
         }
 
+        console.log('[IFRAME DEBUG] Cargando stream:', streamId);
+        console.log('[IFRAME DEBUG] apiBaseUrl:', this.apiBaseUrl);
+
         // Ocultar el elemento de video anterior si existe
         const videoElement = document.getElementById('canalVideo');
         if (videoElement) {
@@ -51,8 +54,11 @@ export class IframePlayerService {
 
         // Crear iframe que apunta al backend sanitizador
         // El backend obtiene el HTML de la14hd y remueve scripts maliciosos
+        const iframeUrl = `${this.apiBaseUrl}/stream-html-cleaned?stream=${encodeURIComponent(streamId)}`;
+        console.log('[IFRAME DEBUG] Iframe URL:', iframeUrl);
+        
         this.iframe = document.createElement('iframe');
-        this.iframe.src = `${this.apiBaseUrl}/stream-html-cleaned?stream=${encodeURIComponent(streamId)}`;
+        this.iframe.src = iframeUrl;
         this.iframe.setAttribute('allowfullscreen', 'true');
         this.iframe.setAttribute('scrolling', 'no');
         this.iframe.className = 'hijacked-iframe';
@@ -70,6 +76,8 @@ export class IframePlayerService {
 
         // Configurar event listeners
         this._setupEventListeners();
+        
+        console.log('[IFRAME DEBUG] Iframe inyectado en DOM');
     }
 
     /**
@@ -147,6 +155,8 @@ export class IframePlayerService {
                 document.exitFullscreen();
             }
         }
+    }
+
     /**
      * Limpia los recursos del reproductor
      */
@@ -163,9 +173,7 @@ export class IframePlayerService {
 
         if (this.controls && this.controls.parentNode) {
             this.controls.parentNode.removeChild(this.controls);
-            this.controls = null
-        if (this.container) {
-            this.container.innerHTML = '';
+            this.controls = null;
         }
     }
 }
