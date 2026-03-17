@@ -25,14 +25,16 @@ router.get('/stream-url', async (req, res, next) => {
 
     const data = await streamUrlService.resolveStreamUrl(stream);
     
-    // TEMPORAL: Cloudflare Worker bloqueado por upstream (403)
-    // Usar proxy local del backend para playlists
+    // ARQUITECTURA HÍBRIDA:
+    // Backend maneja playlists (IP limpia, evita 403)
+    // Cloudflare Worker maneja segmentos (escala infinito)
     const proxyUrl = `/api/hls-proxy?url=${encodeURIComponent(data.url)}`;
     
     res.json({
       playbackUrl: proxyUrl,
       expiresAt: data.expiresAt,
-      proxy: 'backend'
+      proxy: 'hybrid', // Backend (playlists) + Cloudflare (segmentos)
+      cloudflareWorker: !!env.CLOUDFLARE_WORKER_URL
     });
 
   } catch (error) {
@@ -40,7 +42,8 @@ router.get('/stream-url', async (req, res, next) => {
   }
 });
 
-// Proxy HLS - maneja playlists y segmentos
+// Proxy HLS Híbrido - Solo maneja playlists
+// Los segmentos pasan por Cloudflare Worker
 router.get('/hls-proxy', async (req, res, next) => {
   try {
     const { url } = req.query;
@@ -51,10 +54,16 @@ router.get('/hls-proxy', async (req, res, next) => {
 
     const hlsProxyService = require('../services/hls-proxy.service');
     
-    // Detectar si es playlist o segmento
+    // ARQUITECTURA HÍBRIDA:
+    // Backend solo maneja playlists (.m3u8)
+    // Segmentos (.ts) van directo a Cloudflare Worker
+    
     if (url.includes('.m3u8')) {
+      // Playlist: Backend descarga con IP limpia (evita 403)
       await hlsProxyService.proxyPlaylist(url, res);
     } else {
+      // Segmento: Fallback si Cloudflare falla
+      // Normalmente no debería llegar aquí
       await hlsProxyService.proxySegment(url, res);
     }
 

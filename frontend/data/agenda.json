@@ -1,6 +1,6 @@
 [
   {
-    "id": 4,
+    "id": 1,
     "time": "20:15",
     "title": "Liga Profesional: Instituto vs Independiente",
     "category": "Futbol",
@@ -12,7 +12,7 @@
     "streamId": "tntsports"
   },
   {
-    "id": 5,
+    "id": 2,
     "time": "20:00",
     "title": "Clásico Mundial de Béisbol:  Italia vs Venezuela",
     "category": "Futbol",
@@ -24,7 +24,7 @@
     "streamId": "espn2"
   },
   {
-    "id": 6,
+    "id": 3,
     "time": "20:00",
     "title": "Clásico Mundial de Béisbol:  Italia vs Venezuela",
     "category": "Futbol",
@@ -36,7 +36,7 @@
     "streamId": "disney1"
   },
   {
-    "id": 7,
+    "id": 4,
     "time": "20:00",
     "title": "Clásico Mundial de Béisbol:  Italia vs Venezuela",
     "category": "Futbol",
@@ -48,7 +48,7 @@
     "streamId": "foxdeportes"
   },
   {
-    "id": 8,
+    "id": 5,
     "time": "20:00",
     "title": "Clásico Mundial de Béisbol:  Italia vs Venezuela",
     "category": "Futbol",
@@ -60,7 +60,7 @@
     "streamId": "espnmx"
   },
   {
-    "id": 9,
+    "id": 6,
     "time": "20:00",
     "title": "Clásico Mundial de Béisbol:  Italia vs Venezuela",
     "category": "Futbol",
@@ -70,17 +70,5 @@
     "isUpcoming": false,
     "url": "canal.html?stream=espn1_nl",
     "streamId": "espn1_nl"
-  },
-  {
-    "id": 10,
-    "time": "18:30",
-    "title": "Primera División: Colo-Colo vs Huachipato",
-    "category": "Futbol",
-    "status": "En vivo",
-    "isLive": true,
-    "isFinished": false,
-    "isUpcoming": false,
-    "url": "canal.html?stream=tntsportschile",
-    "streamId": "tntsportschile"
   }
 ]
