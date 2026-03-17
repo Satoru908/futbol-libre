@@ -5,10 +5,8 @@ import { HlsPlayerService } from "./services/hls-player.service.js";
 class CanalPage {
   constructor() {
     this.channelDataService = new ChannelDataService();
-    // Ajustar si en prod usas otro endpoint base
-    const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? "http://localhost:8787/api"
-        : "https://futbol-libre-production-5102.up.railway.app/api";
+    // Usamos exclusivamente la API en la nube (Railway) para evitar fallos locales en el port 8787
+    const API_BASE_URL = "https://futbol-libre-production-5102.up.railway.app/api";
         
     this.streamApiService = new ClientScraperService(API_BASE_URL);
     this.hlsPlayer = null;
