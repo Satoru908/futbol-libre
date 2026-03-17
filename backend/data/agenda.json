@@ -40,10 +40,10 @@
     "time": "18:20",
     "title": "Primera A: Atlético Bucaramanga vs Once Caldas",
     "category": "Futbol",
-    "status": "Pronto",
-    "isLive": false,
+    "status": "En vivo",
+    "isLive": true,
     "isFinished": false,
-    "isUpcoming": true,
+    "isUpcoming": false,
     "url": "canal.html?stream=winsportsplus",
     "streamId": "winsportsplus"
   },
@@ -52,10 +52,10 @@
     "time": "18:20",
     "title": "Primera A: Atlético Bucaramanga vs Once Caldas",
     "category": "Futbol",
-    "status": "Pronto",
-    "isLive": false,
+    "status": "En vivo",
+    "isLive": true,
     "isFinished": false,
-    "isUpcoming": true,
+    "isUpcoming": false,
     "url": "canal.html?stream=winsports2",
     "streamId": "winsports2"
   },
@@ -132,7 +132,7 @@
     "streamId": "tudn"
   },
   {
-    "id": 21,
+    "id": 15,
     "time": "17:00",
     "title": "Liga Profesional: Lanús vs Newell's Old Boys",
     "category": "Futbol",
@@ -144,7 +144,7 @@
     "streamId": "espnpremium"
   },
   {
-    "id": 22,
+    "id": 16,
     "time": "19:15",
     "title": "Liga Profesional: Central Córdoba SdE vs Deportivo Riestra",
     "category": "Futbol",
@@ -156,7 +156,7 @@
     "streamId": "tntsports"
   },
   {
-    "id": 23,
+    "id": 17,
     "time": "20:00",
     "title": "Copa de Campeones de la Concacaf: Alajuelense vs Los Angeles FC",
     "category": "Futbol",
@@ -168,7 +168,7 @@
     "streamId": "disney11"
   },
   {
-    "id": 24,
+    "id": 18,
     "time": "20:00",
     "title": "Copa de Campeones de la Concacaf: Alajuelense vs Los Angeles FC",
     "category": "Futbol",
@@ -180,7 +180,7 @@
     "streamId": "tudn"
   },
   {
-    "id": 32,
+    "id": 19,
     "time": "16:00",
     "title": "Segunda División: Tacuarembó vs La Luz",
     "category": "Futbol",
@@ -192,7 +192,7 @@
     "streamId": "disney1"
   },
   {
-    "id": 33,
+    "id": 20,
     "time": "17:00",
     "title": "Copa de Brasil: Nova Iguaçu vs Fortaleza",
     "category": "Futbol",
