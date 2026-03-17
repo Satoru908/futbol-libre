@@ -2,22 +2,22 @@
 FROM node:20-bullseye-slim
 
 # REQUISITO DE HUGGING FACE:
-# Ejecutar siempre como un usuario que no sea root y con ID 1000
-RUN useradd -m -u 1000 user
-USER user
-ENV PATH="/home/user/.local/bin:$PATH"
+# Las imágenes oficiales de NodeJS ya traen por defecto un usuario llamado "node" que tiene el UID 1000.
+# Hugging Face requiere que usemos exactamente el UID 1000, así que usaremos al usuario existente.
+USER node
+ENV PATH="/home/node/.local/bin:$PATH"
 
-# Establecer el directorio de trabajo
-WORKDIR /app
+# Establecer el directorio de trabajo dentro del entorno del usuario node
+WORKDIR /home/node/app
 
-# Copiar archivos de configuración de NPM manteniendo los permisos para el usuario 'user'
-COPY --chown=user package*.json ./
+# Copiar archivos de configuración de NPM manteniendo los permisos para el usuario 'node'
+COPY --chown=node package*.json ./
 
 # Instalar solo las dependencias de producción (más rápido e ignora devDependencies)
 RUN npm ci --only=production
 
 # Copiar el código del proyecto manteniendo permisos
-COPY --chown=user . .
+COPY --chown=node . .
 
 # REQUISITO DE HUGGING FACE:
 # Forzar a la aplicación a escuchar en el puerto 7860
