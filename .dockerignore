@@ -1,7 +1,5 @@
 node_modules/
-npm-debug.log
+backend/node_modules/
+frontend/
+.git/
 .env
-.git
-.gitignore
-.dockerignore
-Dockerfile
