@@ -152,7 +152,8 @@ function getEventTimeInfo(eventTime) {
  * Guarda la agenda en archivo JSON
  */
 function saveAgenda(events) {
-  const outputPath = path.join(__dirname, '../../../frontend/data/agenda.json');
+  // Ajuste para Hugging Face: guardarlo de forma local en backend/data
+  const outputPath = path.join(__dirname, '../../data/agenda.json');
   const dir = path.dirname(outputPath);
   
   if (!fs.existsSync(dir)) {
