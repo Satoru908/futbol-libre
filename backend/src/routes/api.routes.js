@@ -87,17 +87,21 @@ router.use('/hls-proxy', createProxyMiddleware({
     return target.pathname + target.search;
   },
   changeOrigin: true,
+  proxyTimeout: 15000,
+  timeout: 15000,
   on: {
     proxyReq: (proxyReq, req, res) => {
       // Cabeceras exigidas por el servidor de origen
       proxyReq.setHeader('User-Agent', env.UPSTREAM_USER_AGENT);
       proxyReq.setHeader('Referer', env.UPSTREAM_REFERER || 'https://la14hd.com/');
       proxyReq.setHeader('Origin', 'https://la14hd.com');
+      proxyReq.setHeader('Connection', 'close');
     },
     proxyRes: (proxyRes, req, res) => {
       // Configuraciones para el Player (P2P / CORS)
       proxyRes.headers['Access-Control-Allow-Origin'] = '*';
       proxyRes.headers['Cache-Control'] = 'public, max-age=3600';
+      proxyRes.headers['Content-Type'] = 'video/mp2t';
     },
     error: (err, req, res) => {
       logger.error('Streaming Proxy Error: ' + err.message);
