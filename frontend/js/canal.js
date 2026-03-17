@@ -1,5 +1,5 @@
 import { ChannelDataService } from "./services/channel-data.service.js";
-import { IframePlayerService } from "./services/iframe-player.service.js";
+import { HlsDirectPlayerService } from "./services/hls-direct-player.service.js";
 import { APP_CONFIG } from "./config/constants.js";
 
 class CanalPage {
@@ -108,30 +108,16 @@ class CanalPage {
       return;
     }
 
-    console.log('[CANAL DEBUG] Configurando player...');
-    this.iframePlayer = new IframePlayerService(container);
+    console.log('[CANAL DEBUG] Configurando player HLS directo...');
+    this.iframePlayer = new HlsDirectPlayerService(container);
     this._showLoading(true);
 
     try {
-      // Inyectar visualmente el Iframe y enmascararlo
-      this.iframePlayer.load(this.streamId);
+      // Cargar stream con obtención de URL fresca desde backend
+      await this.iframePlayer.load(this.streamId);
       
-      // Ocultar loading cuando el iframe termine de cargar
-      this.iframePlayer.iframe.onload = () => {
-        console.log('[IFRAME DEBUG] Iframe cargado exitosamente');
-        this._showLoading(false);
-      };
-      
-      this.iframePlayer.iframe.onerror = () => {
-        console.error('[IFRAME DEBUG] Error cargando iframe');
-        this._showLoading(false);
-      };
-      
-      // Fallback por si acaso
-      setTimeout(() => {
-        console.log('[CANAL DEBUG] Timeout: ocultando loading (fallback)');
-        this._showLoading(false);
-      }, 5000);
+      console.log('[CANAL DEBUG] Player cargado, ocultando loading');
+      this._showLoading(false);
       
     } catch (error) {
       console.error("[CANAL DEBUG] Error loading stream:", error);

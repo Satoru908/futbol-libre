@@ -4,10 +4,10 @@
     "time": "12:00",
     "title": "Super Lig: Fenerbahçe vs Gaziantep FK",
     "category": "Futbol",
-    "status": "Pronto",
-    "isLive": false,
+    "status": "En vivo",
+    "isLive": true,
     "isFinished": false,
-    "isUpcoming": true,
+    "isUpcoming": false,
     "url": "canal.html?stream=disney3",
     "streamId": "disney3"
   },

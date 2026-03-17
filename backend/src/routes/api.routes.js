@@ -4,6 +4,7 @@ const logger = require('../utils/logger');
 const env = require('../config/env');
 const la14Provider = require('../providers/la14hd.provider');
 const htmlSanitizerService = require('../services/html-sanitizer.service');
+const hlsStreamResolver = require('../services/hls-stream-resolver.service');
 
 // Health check
 router.get('/health', (req, res) => {
@@ -118,6 +119,73 @@ router.get('/sanitizer-stats', (req, res) => {
     message: 'Estadísticas del servicio de sanitización',
     stats
   });
+});
+
+/**
+ * NUEVO: Endpoint para obtener URL del stream HLS con token fresco
+ * 
+ * Este endpoint es superior al HTML sanitizado porque:
+ * 1. Obtiene un token FRESCO cada vez (no expirado)
+ * 2. Retorna solo la URL del stream, no todo el HTML
+ * 3. El frontend puede usar su propio reproductor
+ * 4. Menos overhead: solo una URL JSON, no 1600+ bytes de HTML
+ * 
+ * Uso:
+ * GET /api/stream-url?stream=foxsports3
+ * 
+ * Respuesta:
+ * {
+ *   "streamId": "foxsports3",
+ *   "url": "https://x4bnd7lq.fubohd.com:443/foxsports3/mono.m3u8?token=...",
+ *   "provider": "la14hd",
+ *   "timestamp": 1773765876543
+ * }
+ */
+router.get('/stream-url', async (req, res, next) => {
+  try {
+    const { stream, provider } = req.query;
+
+    if (!stream) {
+      logger.warn('GET /stream-url: Parámetro stream faltante');
+      return res.status(400).json({
+        error: 'Parámetro stream requerido',
+        example: '/api/stream-url?stream=foxsports3'
+      });
+    }
+
+    const selectedProvider = provider || 'la14hd';
+    let htmlProvider = null;
+
+    if (selectedProvider === 'la14hd') {
+      htmlProvider = la14Provider.fetchHtml.bind(la14Provider);
+    } else {
+      logger.error(`Provider desconocido en /stream-url: ${selectedProvider}`);
+      return res.status(400).json({ error: 'Provider desconocido' });
+    }
+
+    // Obtener URL del stream con token fresco
+    logger.info(`Obteniendo URL del stream para: ${stream}`);
+    const streamUrl = await hlsStreamResolver.getStreamUrl(stream, htmlProvider);
+
+    if (!streamUrl) {
+      logger.error(`No se pudo obtener URL del stream para: ${stream}`);
+      return res.status(500).json({ error: 'No se pudo obtener la URL del stream' });
+    }
+
+    // Retornar URL en formato JSON
+    res.json({
+      streamId: stream,
+      url: streamUrl,
+      provider: selectedProvider,
+      timestamp: Date.now()
+    });
+
+    logger.info(`URL del stream entregada para: ${stream}`);
+
+  } catch (error) {
+    logger.error(`Error en GET /stream-url:`, error.message);
+    next(error);
+  }
 });
 
 module.exports = router;
