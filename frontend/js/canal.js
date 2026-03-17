@@ -1,15 +1,10 @@
 import { ChannelDataService } from "./services/channel-data.service.js";
-import { ClientScraperService } from "./services/client-scraper.service.js";
-import { HlsPlayerService } from "./services/hls-player.service.js";
+import { IframePlayerService } from "./services/iframe-player.service.js";
 
 class CanalPage {
   constructor() {
     this.channelDataService = new ChannelDataService();
-    // Usamos exclusivamente la API en la nube (Railway) para evitar fallos locales en el port 8787
-    const API_BASE_URL = "https://futbol-libre-production-5102.up.railway.app/api";
-        
-    this.streamApiService = new ClientScraperService(API_BASE_URL);
-    this.hlsPlayer = null;
+    this.iframePlayer = null;
     this.streamId = null;
     
     this.init();
@@ -100,20 +95,24 @@ class CanalPage {
       return;
     }
 
-    const videoElement = document.getElementById("canalVideo");
-    if (!videoElement) return;
+    const container = document.querySelector('.player-container');
+    if (!container) return;
 
-    this.hlsPlayer = new HlsPlayerService(videoElement);
+    this.iframePlayer = new IframePlayerService(container);
     this._showLoading(true);
 
     try {
-      const streamData = await this.streamApiService.getResolvedStream(this.streamId);
-      await this.hlsPlayer.load(streamData.playbackUrl);
-      this._showLoading(false);
+      // Inyectar visualmente el Iframe y enmascararlo
+      this.iframePlayer.load(this.streamId);
       
-      if (streamData.expiresAt) {
-        this._scheduleTokenRefresh(streamData.expiresAt);
-      }
+      // Ocultar loading cuando el iframe termine de cargar
+      this.iframePlayer.iframe.onload = () => {
+        this._showLoading(false);
+      };
+      
+      // Fallback por si acaso
+      setTimeout(() => this._showLoading(false), 3000);
+      
     } catch (error) {
       console.error("Error loading stream:", error);
       this._showLoading(false);
