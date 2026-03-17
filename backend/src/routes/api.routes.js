@@ -163,19 +163,20 @@ router.get('/stream-url', async (req, res, next) => {
       return res.status(400).json({ error: 'Provider desconocido' });
     }
 
-    // Obtener URL del stream con token fresco
+    // Obtener URL del stream con headers necesarios
     logger.info(`Obteniendo URL del stream para: ${stream}`);
-    const streamUrl = await hlsStreamResolver.getStreamUrl(stream, htmlProvider);
+    const streamData = await hlsStreamResolver.getStreamUrl(stream, htmlProvider);
 
-    if (!streamUrl) {
+    if (!streamData) {
       logger.error(`No se pudo obtener URL del stream para: ${stream}`);
       return res.status(500).json({ error: 'No se pudo obtener la URL del stream' });
     }
 
-    // Retornar URL en formato JSON
+    // Retornar URL + headers en formato JSON
     res.json({
       streamId: stream,
-      url: streamUrl,
+      url: streamData.url,
+      headers: streamData.headers,
       provider: selectedProvider,
       timestamp: Date.now()
     });

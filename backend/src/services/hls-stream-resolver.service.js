@@ -128,10 +128,10 @@ class HlsStreamResolver {
     }
 
     /**
-     * Obtiene la URL del stream con token fresco
+     * Obtiene la URL del stream con token fresco Y headers necesarios
      * @param {string} streamId - ID del stream
      * @param {function} htmlProvider - Función que obtiene el HTML
-     * @returns {Promise<string>} - URL del stream o string vacío si falla
+     * @returns {Promise<object>} - Objeto {url, headers} o null si falla
      */
     async getStreamUrl(streamId, htmlProvider) {
         try {
@@ -139,7 +139,10 @@ class HlsStreamResolver {
             const cached = this.streamCache.get(streamId);
             if (cached && cached.expiresAt > Date.now()) {
                 logger.info(`Stream URL desde caché para: ${streamId}`);
-                return cached.url;
+                return {
+                    url: cached.url,
+                    headers: cached.headers || this._getDefaultHeaders()
+                };
             }
 
             // Obtener HTML fresco
@@ -148,7 +151,7 @@ class HlsStreamResolver {
 
             if (!html) {
                 logger.error(`HTML vacío para stream: ${streamId}`);
-                return '';
+                return null;
             }
 
             // Extraer URL
@@ -156,8 +159,11 @@ class HlsStreamResolver {
             
             if (!streamUrl) {
                 logger.error(`No se pudo extraer URL para stream: ${streamId}`);
-                return '';
+                return null;
             }
+
+            // Headers necesarios para acceder al stream desde cualquier origen
+            const headers = this._getDefaultHeaders();
 
             // VALIDAR TOKEN: Solo cachear si tiene >10 minutos de vida
             // Si no se puede validar el token, igualmente devolver URL (frontend manejará reintentos si es necesario)
@@ -167,6 +173,7 @@ class HlsStreamResolver {
                 // Cachear solo si el token es válido
                 this.streamCache.set(streamId, {
                     url: streamUrl,
+                    headers: headers,
                     expiresAt: Date.now() + this.CACHE_TTL
                 });
                 logger.info(`Stream URL en caché (token válido) para: ${streamId}`);
@@ -174,13 +181,27 @@ class HlsStreamResolver {
                 logger.warn(`Token inválido/próximo a expirar o no se pudo validar. Devolviendo URL sin cachear para: ${streamId}`);
             }
 
-            return streamUrl;
+            return {
+                url: streamUrl,
+                headers: headers
+            };
 
         } catch (error) {
             logger.error(`Error obteniendo stream URL para ${streamId}:`, error.message);
             logger.error('Stack trace:', error.stack);
-            return '';
+            return null;
         }
+    }
+
+    /**
+     * Headers por defecto para acceder a la URL del stream
+     */
+    _getDefaultHeaders() {
+        return {
+            'Referer': 'https://la14hd.com/',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Origin': 'https://la14hd.com'
+        };
     }
 
     /**

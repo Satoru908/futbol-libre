@@ -23,6 +23,7 @@ export class HlsDirectPlayerService {
         this.controls = null;
         this.apiBaseUrl = APP_CONFIG.apiBaseUrl;
         this.currentStreamId = null;
+        this.currentHeaders = null;
         this.retryCount = 0;
         this.maxRetries = 3;
     }
@@ -44,12 +45,13 @@ export class HlsDirectPlayerService {
 
         try {
             // Paso 1: Obtener URL del stream desde el backend (con reintentos)
-            const streamUrl = await this._fetchStreamUrlWithRetry(streamId);
+            const streamData = await this._fetchStreamUrlWithRetry(streamId);
             
-            if (!streamUrl) {
+            if (!streamData || !streamData.url) {
                 throw new Error('No se pudo obtener la URL del stream');
             }
 
+            const streamUrl = streamData.url;
             console.log('[HLS DEBUG] Stream URL obtenida:', streamUrl);
 
             // Paso 2: Crear elemento video
@@ -71,10 +73,10 @@ export class HlsDirectPlayerService {
      */
     async _fetchStreamUrlWithRetry(streamId, attempt = 1) {
         try {
-            const url = await this._fetchStreamUrl(streamId);
-            if (url) {
+            const streamData = await this._fetchStreamUrl(streamId);
+            if (streamData) {
                 console.log(`[HLS DEBUG] URL obtenida en intento ${attempt}`);
-                return url;
+                return streamData;
             }
             
             // Si no hay URL pero tampoco error, reintentar
@@ -103,7 +105,8 @@ export class HlsDirectPlayerService {
     }
 
     /**
-     * Obtiene la URL del stream desde el backend
+     * Obtiene la URL y headers del stream desde el backend
+     * @returns {Promise<{url: string, headers: object}>} - Objeto con URL y headers
      */
     async _fetchStreamUrl(streamId) {
         try {
@@ -119,7 +122,16 @@ export class HlsDirectPlayerService {
             const data = await response.json();
             console.log('[HLS DEBUG] Stream URL response:', data);
 
-            return data.url || null;
+            // Guardar headers para usarlos luego en hls.js
+            if (data.headers) {
+                this.currentHeaders = data.headers;
+                console.log('[HLS DEBUG] Headers recibidos:', this.currentHeaders);
+            }
+
+            return {
+                url: data.url,
+                headers: data.headers || {}
+            } || null;
 
         } catch (error) {
             console.error('[HLS DEBUG] Error fetching stream URL:', error.message);
@@ -181,7 +193,17 @@ export class HlsDirectPlayerService {
 
             this.hls = new Hls({
                 debug: false,
-                enableWorker: true,
+                enableWorker: true,,
+                // Configurar headers personalizados para descargas
+                xhrSetup: (xhr, url) => {
+                    // Agregar headers necesarios para acceder a FuboHD
+                    if (this.currentHeaders) {
+                        if (this.currentHeaders['Referer']) {
+                            xhr.setRequestHeader('Referer', this.currentHeaders['Referer']);
+                        }
+                        // User-Agent se configura a nivel del navegador, no en XHR
+                    }
+                }
                 lowLatencyMode: true
             });
 
@@ -217,12 +239,13 @@ export class HlsDirectPlayerService {
     /**
      * Reintentar con una URL nueva del backend
      */
-    async _retryWithNewUrl(streamId) {
-        if (this.retryCount >= this.maxRetries) {
-            console.error('[HLS DEBUG] Se alcanzó el máximo de reintentos');
-            return;
-        }
+    async _retryWistreamData = await this._fetchStreamUrl(streamId);
+            
+            if (!streamData || !streamData.url) {
+                throw new Error('No se pudo obtener URL nueva');
+            }
 
+            const newStreamUrl = streamData.url;
         this.retryCount++;
         console.log(`[HLS DEBUG] Reintentando con URL nueva (intento ${this.retryCount}/${this.maxRetries})...`);
 
