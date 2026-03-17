@@ -64,7 +64,8 @@ app.get('/', (req, res) => {
 initScheduledTasks();
 
 // Start server
-app.listen(env.PORT, '0.0.0.0', () => {
-    logger.info(`Server running on port ${env.PORT}`);
-    logger.info(`Healthcheck: http://localhost:${env.PORT}/api/health`);
-});
+// Forzando el puerto a 7860 directamente en el app.listen por requerimiento estricto de Hugging Face
+const PORT = process.env.PORT || 7860;
+app.listen(PORT, '0.0.0.0', () => {
+    logger.info(`Server running on port ${PORT}`);
+    logger.info(`Healthcheck: http://localhost:${PORT}/api/health`);
