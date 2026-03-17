@@ -263,12 +263,27 @@ router.get('/stream-manifest', async (req, res, next) => {
     
     logger.info(`URL base para reescribir manifesto: ${baseUrl}`);
     
-    // Reescribir URLs relativas en el manifesto
+    // Reescribir URLs relativas en el manifesto a URLs absolutas
     let manifestContent = manifestResponse.data;
-    // Reemplazar líneas que son rutas relativas (ej: 2026/03/17/...) con URLs absolutas
-    manifestContent = manifestContent.replace(/^((?!https?:\/\/).+\.ts\?.+)$/gm, (match) => {
-      return baseUrl + match;
+    
+    // Procesar línea por línea
+    const lines = manifestContent.split('\n');
+    const rewrittenLines = lines.map(line => {
+      const trimmedLine = line.trim();
+      
+      // Si la línea no es un comentario (#) y no es vacía
+      if (trimmedLine && !trimmedLine.startsWith('#')) {
+        // Si no comienza con http:// o https://, es una URL relativa - añadir base URL
+        if (!trimmedLine.startsWith('http://') && !trimmedLine.startsWith('https://')) {
+          logger.info(`Reescribiendo URL relativa: ${trimmedLine} -> ${baseUrl}${trimmedLine}`);
+          return baseUrl + trimmedLine;
+        }
+      }
+      
+      return line;
     });
+    
+    manifestContent = rewrittenLines.join('\n');
 
     logger.info(`Manifesto obtenido exitosamente para: ${stream} (${manifestResponse.data.length} -> ${manifestContent.length} bytes después de reescritura)`);
 
