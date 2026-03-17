@@ -1,8 +1,6 @@
 // Configuración de la aplicación
-const APP_CONFIG = {
-  channelsDataUrl: "data/channels-complete.json",
-  defaultLogo: "assets/logos/default.png",
-};
+import { APP_CONFIG } from './config/constants.js';
+import { MetaConfig } from './config/meta-config.js';
 
 // Estado global de la aplicación
 const AppState = {
@@ -20,6 +18,9 @@ class FutbolLibreApp {
 
   async init() {
     try {
+      // Update meta tags and analytics with environment configuration
+      MetaConfig.updateMetaTags();
+      
       await this.loadChannels();
       this.setupEventListeners();
 

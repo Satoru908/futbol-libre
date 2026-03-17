@@ -1,6 +1,9 @@
+import { APP_CONFIG } from '../config/constants.js';
+
 export class ChannelDataService {
     constructor() {
-        this.channelsUrl = 'data/channels-complete.json';
+        // Use API endpoint instead of local file
+        this.channelsUrl = APP_CONFIG.channelsDataUrl;
         this.cache = null;
     }
 
@@ -9,7 +12,8 @@ export class ChannelDataService {
         try {
             const response = await fetch(this.channelsUrl);
             const data = await response.json();
-            this.cache = data.channels || [];
+            // Handle both formats: { channels: [...] } or direct array
+            this.cache = data.channels || data || [];
             return this.cache;
         } catch (error) {
             console.error('Error fetching channels:', error);

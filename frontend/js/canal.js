@@ -1,11 +1,10 @@
 import { ChannelDataService } from "./services/channel-data.service.js";
-import { HlsDirectPlayerService } from "./services/hls-direct-player.service.js";
 import { APP_CONFIG } from "./config/constants.js";
 
 class CanalPage {
   constructor() {
     this.channelDataService = new ChannelDataService();
-    this.iframePlayer = null;
+    this.iframe = null;
     this.streamId = null;
     
     this.init();
@@ -19,8 +18,8 @@ class CanalPage {
       return;
     }
 
-    console.log('[CANAL DEBUG] Stream ID:', this.streamId);
-    console.log('[CANAL DEBUG] API Base URL:', APP_CONFIG.apiBaseUrl);
+    console.log('[CANAL] Stream ID:', this.streamId);
+    console.log('[CANAL] API Base URL:', APP_CONFIG.apiBaseUrl);
     
     await this.loadChannelMetadata();
     this.setupPlayer();
@@ -28,11 +27,11 @@ class CanalPage {
   }
 
   async loadChannelMetadata() {
-    console.log('[CANAL DEBUG] Cargando metadatos del canal...');
+    console.log('[CANAL] Cargando metadatos del canal...');
     const channel = await this.channelDataService.getChannelByStream(this.streamId);
     this.currentChannel = channel;
 
-    console.log('[CANAL DEBUG] Canal encontrado:', channel);
+    console.log('[CANAL] Canal encontrado:', channel);
 
     if (channel) {
       this._updateChannelUI(channel);
@@ -104,41 +103,137 @@ class CanalPage {
 
     const container = document.querySelector('.player-container');
     if (!container) {
-      console.error('[CANAL DEBUG] No se encontró .player-container en el DOM');
+      console.error('[CANAL] No se encontró .player-container en el DOM');
       return;
     }
 
-    console.log('[CANAL DEBUG] Configurando player HLS directo...');
-    this.iframePlayer = new HlsDirectPlayerService(container);
+    console.log('[CANAL] Configurando player con iframe directo...');
     this._showLoading(true);
 
     try {
-      // Cargar stream con obtención de URL fresca desde backend
-      await this.iframePlayer.load(this.streamId);
+      // Obtener URL directa del provider desde el backend
+      const response = await fetch(`${APP_CONFIG.apiBaseUrl}/stream-provider-url?stream=${encodeURIComponent(this.streamId)}`);
       
-      console.log('[CANAL DEBUG] Player cargado, ocultando loading');
+      if (!response.ok) {
+        throw new Error(`Error API: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const streamUrl = data.url;
+
+      console.log('[CANAL] URL del stream obtenida:', streamUrl);
+
+      // Crear y cargar iframe con la URL directa
+      this._createIframe(container, streamUrl);
+      
       this._showLoading(false);
+      console.log('[CANAL] Player cargado exitosamente');
       
     } catch (error) {
-      console.error("[CANAL DEBUG] Error loading stream:", error);
+      console.error("[CANAL] Error loading stream:", error);
       this._showLoading(false);
       this._showPlayerError(error.message);
     }
   }
 
   /**
-   * Programa refresh del token antes de que expire
+   * Crea un iframe con la URL del stream
    */
-  _scheduleTokenRefresh(expiresAt) {
-    const timeUntilExpiry = expiresAt - Date.now();
-    if (timeUntilExpiry > 60000) {
-      setTimeout(() => this._refreshToken(), timeUntilExpiry - 60000);
-    }
+  _createIframe(container, streamUrl) {
+    // Limpiar contenedor
+    container.innerHTML = '';
+
+    // Crear máscara oscura de fondo
+    const mask = document.createElement('div');
+    mask.className = 'iframe-mask';
+    mask.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #000;
+      overflow: hidden;
+    `;
+
+    // Crear iframe
+    this.iframe = document.createElement('iframe');
+    this.iframe.src = streamUrl;
+    this.iframe.setAttribute('allowfullscreen', 'true');
+    this.iframe.setAttribute('scrolling', 'no');
+    this.iframe.className = 'stream-iframe';
+    this.iframe.style.cssText = `
+      width: 100%;
+      height: 100%;
+      border: none;
+    `;
+
+    // Crear controles personalizados
+    const controls = document.createElement('div');
+    controls.className = 'custom-player-controls';
+    controls.style.cssText = `
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.5));
+      z-index: 100;
+    `;
+
+    // Botón fullscreen
+    const fsBtn = document.createElement('button');
+    fsBtn.className = 'control-btn';
+    fsBtn.id = 'customFullscreenBtn';
+    fsBtn.title = 'Pantalla completa';
+    fsBtn.innerHTML = '<span style="font-size: 18px;">⛶</span>';
+    fsBtn.style.cssText = `
+      background: rgba(255,255,255,0.3);
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    `;
+
+    fsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this._toggleFullscreen(container);
+    });
+
+    controls.appendChild(fsBtn);
+    
+    // Ensamblar
+    mask.appendChild(this.iframe);
+    mask.appendChild(controls);
+    container.appendChild(mask);
+
+    console.log('[CANAL] Iframe inyectado en DOM');
   }
 
-  async _refreshToken() {
-    console.log("Refrescando token de stream...");
-    // Implementación futura
+  /**
+   * Activa/desactiva pantalla completa
+   */
+  _toggleFullscreen(element) {
+    if (!document.fullscreenElement) {
+      if (element.requestFullscreen) {
+        element.requestFullscreen().catch(() => {});
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    }
   }
 
   _showOfflineMessage() {
@@ -195,94 +290,16 @@ class CanalPage {
    * Configura event listeners para botones
    */
   _setupEventListeners() {
-    // Botón pantalla completa desktop
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    if (fullscreenBtn) {
-      fullscreenBtn.addEventListener('click', () => this._toggleFullscreen());
-    }
-
-    // Botón pantalla completa mobile
-    const fullscreenBtnMobile = document.getElementById('fullscreenBtnMobile');
-    if (fullscreenBtnMobile) {
-      fullscreenBtnMobile.addEventListener('click', () => this._toggleFullscreen());
-    }
-
-    // Botón volver mobile
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {
       backBtn.addEventListener('click', () => {
         window.location.href = 'index.html';
       });
     }
-
-    // Botón compartir
-    const shareBtn = document.getElementById('shareBtn');
-    if (shareBtn) {
-      shareBtn.addEventListener('click', () => this._shareChannel());
-    }
-  }
-
-  /**
-   * Activa/desactiva pantalla completa
-   */
-  _toggleFullscreen() {
-    const videoElement = document.getElementById('canalVideo');
-    if (!videoElement) return;
-
-    if (!document.fullscreenElement) {
-      // Entrar en pantalla completa
-      if (videoElement.requestFullscreen) {
-        videoElement.requestFullscreen();
-      } else if (videoElement.webkitRequestFullscreen) {
-        videoElement.webkitRequestFullscreen();
-      } else if (videoElement.mozRequestFullScreen) {
-        videoElement.mozRequestFullScreen();
-      } else if (videoElement.msRequestFullscreen) {
-        videoElement.msRequestFullscreen();
-      }
-    } else {
-      // Salir de pantalla completa
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-      } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-      }
-    }
-  }
-
-  /**
-   * Comparte el canal actual
-   */
-  _shareChannel() {
-    const url = window.location.href;
-    const title = this.currentChannel ? this.currentChannel.name : 'Canal';
-    const text = `Mira ${title} en vivo`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: title,
-        text: text,
-        url: url
-      }).catch(err => console.log('Error sharing:', err));
-    } else {
-      // Fallback: copiar al portapapeles
-      navigator.clipboard.writeText(url).then(() => {
-        if (window.notifications) {
-          window.notifications.show('Enlace copiado al portapapeles', 'success');
-        } else {
-          alert('Enlace copiado al portapapeles');
-        }
-      }).catch(err => {
-        console.error('Error copying to clipboard:', err);
-      });
-    }
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+// Instanciar cuando DOM cargue
+document.addEventListener('DOMContentLoaded', () => {
   new CanalPage();
 });

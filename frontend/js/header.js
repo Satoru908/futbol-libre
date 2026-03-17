@@ -1,20 +1,29 @@
 /**
  * Script para renderizar header y footer dinámicamente
+ * Carga canales desde endpoint API del backend
  */
+
+import { APP_CONFIG } from './config/constants.js';
 
 document.addEventListener("DOMContentLoaded", async () => {
     try {
-        const response = await fetch("data/channels-complete.json");
-        if (!response.ok) throw new Error("Error loading channels");
+        const response = await fetch(APP_CONFIG.channelsDataUrl);
+        if (!response.ok) throw new Error("Error loading channels: " + response.status);
         
         const data = await response.json();
+        // El endpoint devuelve { success, count, channels, timestamp }
         const channels = data.channels || [];
+        
+        if (channels.length === 0) {
+          console.warn('No canales retornados del API');
+        }
         
         renderHeader(channels);
         renderFooter(channels);
 
     } catch (error) {
         console.error("Error updating navigation:", error);
+        console.warn("Navigation links will not be available");
     }
 });
 

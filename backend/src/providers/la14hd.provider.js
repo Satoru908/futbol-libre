@@ -1,16 +1,17 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
 const urlValidator = require('../utils/url-validator');
+const env = require('../config/env');
 
 class La14HdProvider {
     constructor() {
-        this.baseUrl = 'https://la14hd.com/vivo/canales.php';
+        this.baseUrl = env.PROVIDER_BASE_URL;
         this.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://la14hd.com/'
+            'User-Agent': env.PROVIDER_USER_AGENT,
+            'Referer': env.PROVIDER_REFERER
         };
         this.htmlCache = new Map();
-        this.CACHE_TTL = 1 * 60 * 1000; // 1 minuto de caché (Token FuboHD ~20min, caché corto para frescura)
+        this.CACHE_TTL = env.CACHE_TTL; // desde env.js
     }
 
     async fetchHtml(streamId) {

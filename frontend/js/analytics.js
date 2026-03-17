@@ -1,4 +1,5 @@
 // Google Analytics y tracking para SEO
+import { APP_CONFIG } from './config/constants.js';
 
 class AnalyticsManager {
   constructor() {
@@ -15,8 +16,14 @@ class AnalyticsManager {
 
   // Google Analytics 4
   setupGoogleAnalytics() {
-    // ID real de GA4
-    const GA_MEASUREMENT_ID = "G-1CZ6C0YD7G";
+    // Get GA_MEASUREMENT_ID from environment config
+    const GA_MEASUREMENT_ID = APP_CONFIG.gaId;
+    
+    // Skip if GA_ID is not configured
+    if (!GA_MEASUREMENT_ID || GA_MEASUREMENT_ID === '') {
+      console.log('Google Analytics not configured (VITE_GA_ID not set)');
+      return;
+    }
 
     // Cargar gtag
     const gtagScript = document.createElement("script");
