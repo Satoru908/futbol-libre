@@ -91,7 +91,22 @@ class _TelegramAwareApiService {
    * Bloquea iframes de anuncios comunes
    */
   blockAdvertisingIframes() {
-    // Observar cambios en el DOM para detectar iframes de anuncios
+    // Lista completa de indicadores de anuncios
+    const adIndicators = [
+      'ads', 'ad-', 'ad.',
+      'doubleclick', 'pagead', 'googleads', 'adsense', 'adroll', 'addthis',
+      'banner', 'popup', 'modal',
+      'interstitial', 'rewarded',
+      'googlesyndication', 'googleadservices',
+      'criteo', 'outbrain', 'taboola',
+      'disqus', 'consent',
+      'tracking', 'analytics'
+    ];
+
+    // Inicialmente eliminar iframes existentes de anuncios
+    this.removeExistingAdFrames(adIndicators);
+
+    // Observar cambios en el DOM para detectar nuevos iframes de anuncios
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         if (mutation.addedNodes.length) {
@@ -99,15 +114,24 @@ class _TelegramAwareApiService {
             if (node.nodeType === 1 && node.tagName === 'IFRAME') {
               const src = node.getAttribute('src') || '';
               const id = node.getAttribute('id') || '';
+              const name = node.getAttribute('name') || '';
+              const dataAttr = node.getAttribute('data-*') || '';
               
-              // Detectar iframes de anuncios comunes
-              const adIndicators = ['ads', 'ad-', 'doubleclick', 'pagead', 'googleads', 'adsense'];
+              // Detectar iframes de anuncios
               const isAdFrame = adIndicators.some(indicator => 
-                src.toLowerCase().includes(indicator) || id.toLowerCase().includes(indicator)
+                src.toLowerCase().includes(indicator) || 
+                id.toLowerCase().includes(indicator) ||
+                name.toLowerCase().includes(indicator)
               );
               
               if (isAdFrame) {
-                console.log(`🚫 Iframe de anuncio bloqueado: ${id || src}`);
+                console.log(`🚫 Iframe de anuncio detectado y bloqueado: ${id || src}`);
+                node.style.display = 'none';
+                node.remove();
+              }
+              // Bloquear iframes sin src (potencial injection)
+              else if (!src) {
+                console.log(`🚫 Iframe sin src bloqueado (potencial anuncio): ${id || name}`);
                 node.style.display = 'none';
                 node.remove();
               }
@@ -120,7 +144,32 @@ class _TelegramAwareApiService {
     observer.observe(document.documentElement, {
       childList: true,
       subtree: true,
-      attributes: false
+      attributes: true,
+      attributeFilter: ['src', 'id', 'name']
+    });
+  }
+
+  /**
+   * Elimina iframes de anuncios que ya existen en la página
+   */
+  removeExistingAdFrames(adIndicators) {
+    const allIframes = document.querySelectorAll('iframe');
+    allIframes.forEach(iframe => {
+      const src = iframe.getAttribute('src') || '';
+      const id = iframe.getAttribute('id') || '';
+      const name = iframe.getAttribute('name') || '';
+      
+      const isAdFrame = adIndicators.some(indicator => 
+        src.toLowerCase().includes(indicator) || 
+        id.toLowerCase().includes(indicator) ||
+        name.toLowerCase().includes(indicator)
+      );
+      
+      if (isAdFrame || !src) {
+        console.log(`🚫 Removiendo iframe de anuncio existente: ${id || src}`);
+        iframe.style.display = 'none';
+        iframe.remove();
+      }
     });
   }
 
