@@ -4,6 +4,7 @@
  */
 
 import { TelegramConnector } from './telegram-connector.js';
+import { AdBlockerUIService } from './ad-blocker-ui.service.js';
 
 class _TelegramAwareApiService {
   constructor() {
@@ -68,10 +69,19 @@ class _TelegramAwareApiService {
       'ads.',
       'doubleclick',
       'adroll',
-      'addthis'
+      'addthis',
+      'ads', 'ad-', 'ad=',
+      'googleads', 'adsense',
+      'criteo', 'outbrain', 'taboola',
+      'googlesyndication', 'googleadservices',
+      'tracking', 'analytics', 'gtag',
+      'disqus', 'consent',
+      'facebook.com/en_US/sdk',
+      'twitter.com/widgets',
+      'reddit.com/api'
     ];
 
-    // Interceptar fetch de scripts de anuncios
+    // 1. Interceptar fetch de scripts de anuncios
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
       const url = args[0];
@@ -79,11 +89,36 @@ class _TelegramAwareApiService {
         for (const pattern of adScriptPatterns) {
           if (url.toLowerCase().includes(pattern)) {
             console.log(`🚫 Bloqueado script de anuncio: ${url}`);
+            AdBlockerUIService.showBlocked('script');
             return Promise.reject(new Error('Anuncio bloqueado'));
           }
         }
       }
       return originalFetch.apply(this, args);
+    };
+
+    // 2. Bloquear script tags que se inyecten en el DOM
+    const originalCreateElement = document.createElement;
+    document.createElement = function(tagName) {
+      const element = originalCreateElement.call(document, tagName);
+      
+      if (tagName.toLowerCase() === 'script') {
+        const originalSetAttribute = element.setAttribute;
+        element.setAttribute = function(name, value) {
+          if (name.toLowerCase() === 'src') {
+            for (const pattern of adScriptPatterns) {
+              if (value.toLowerCase().includes(pattern)) {
+                console.log(`🚫 Bloqueado <script src> de anuncio: ${value}`);
+                AdBlockerUIService.showBlocked('script');
+                return; // No establecer el atributo
+              }
+            }
+          }
+          return originalSetAttribute.call(this, name, value);
+        };
+      }
+      
+      return element;
     };
   }
 
@@ -126,12 +161,14 @@ class _TelegramAwareApiService {
               
               if (isAdFrame) {
                 console.log(`🚫 Iframe de anuncio detectado y bloqueado: ${id || src}`);
+                AdBlockerUIService.showBlocked('iframe');
                 node.style.display = 'none';
                 node.remove();
               }
               // Bloquear iframes sin src (potencial injection)
               else if (!src) {
                 console.log(`🚫 Iframe sin src bloqueado (potencial anuncio): ${id || name}`);
+                AdBlockerUIService.incrementCounter();
                 node.style.display = 'none';
                 node.remove();
               }
@@ -165,8 +202,14 @@ class _TelegramAwareApiService {
         name.toLowerCase().includes(indicator)
       );
       
-      if (isAdFrame || !src) {
+      if (isAdFrame) {
         console.log(`🚫 Removiendo iframe de anuncio existente: ${id || src}`);
+        AdBlockerUIService.showBlocked('iframe');
+        iframe.style.display = 'none';
+        iframe.remove();
+      } else if (!src) {
+        console.log(`🚫 Removiendo iframe sin src: ${id || name}`);
+        AdBlockerUIService.incrementCounter();
         iframe.style.display = 'none';
         iframe.remove();
       }

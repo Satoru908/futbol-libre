@@ -57,15 +57,21 @@ const frontendPath = isDevelopment
   
 console.log('[INFO] Frontend path:', frontendPath);
 console.log('[INFO] NODE_ENV:', process.env.NODE_ENV);
-app.use(express.static(frontendPath));
 
-// 6. Routes API
+// 6. Routes API (ANTES del fallback SPA - importante!)
 app.use('/api', apiRoutes);
+
+// 7. SPA Fallback - Servir index.html para rutas que no son API
+app.use(express.static(frontendPath));
+app.get('*', (req, res) => {
+  // Si no es una ruta API, servir index.html (para SPA routing)
+  res.sendFile(require('path').join(frontendPath, 'index.html'));
+});
 
 // Error handler
 app.use(errorHandler);
 
-// Healthcheck - Debe estar DESPUÉS de los middlewares estáticos
+// Healthcheck
 app.get('/', (req, res) => {
     res.status(200).json({ 
       status: 'OK',
