@@ -33,14 +33,14 @@ app.use(compression({
 app.use(express.json());
 app.use(requestLogger);
 
-// 4. Security Headers - Bloquear anuncios y scripts maliciosos
+// 4. Security Headers - Mantener compatibilidad con iframes de vídeo
 app.use((req, res, next) => {
-  // Content Security Policy - Bloquea iframes de anuncios
+  // Content Security Policy - Permite iframes de vídeo, bloqueo de anuncios se hace con JS
   res.setHeader('Content-Security-Policy', 
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; connect-src *; frame-src 'self';"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; connect-src *; frame-src 'self' http: https:;"
   );
-  // Evitar clickjacking
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Permitir que se use en iframes (necesario para Telegram Mini App)
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
   // Prevenir MIME sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
   next();
