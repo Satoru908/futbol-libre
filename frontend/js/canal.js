@@ -133,7 +133,7 @@ class CanalPage {
 
     try {
       // Obtener URL directa del provider desde el backend
-      const response = await fetch(`${APP_CONFIG.apiBaseUrl}/stream-provider-url?stream=${encodeURIComponent(this.streamId)}`);
+      const response = await fetch(`${APP_CONFIG.apiBaseUrl}/api/stream-provider-url?stream=${encodeURIComponent(this.streamId)}`);
       
       if (!response.ok) {
         throw new Error(`Error API: ${response.status}`);
