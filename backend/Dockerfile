@@ -16,8 +16,12 @@ COPY --chown=node package*.json ./
 # Instalar solo las dependencias de producción (más rápido e ignora devDependencies)
 RUN npm ci --only=production
 
-# Copiar el código del proyecto manteniendo permisos
+# Copiar el código del backend manteniendo permisos
 COPY --chown=node . .
+
+# Copiar el frontend desde el contexto de build (la raíz del repo está disponible como ..)
+# Si esto falla, es porque Railway necesita ajustar el root directory a . en lugar de /backend
+COPY --chown=node frontend ./frontend
 
 # Puerto: por defecto 3000 (Railway). Se puede sobrescribir con PORT env var
 # Ejemplo para Hugging Face: docker run -e PORT=7860 ...
