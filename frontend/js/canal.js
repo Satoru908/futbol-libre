@@ -128,27 +128,19 @@ class CanalPage {
       return;
     }
 
-    console.log('[CANAL] Configurando player con iframe directo...');
+    console.log('[CANAL] Configurando player directo HLS...');
     this._showLoading(true);
 
     try {
-      // Obtener URL directa del provider desde el backend
-      const response = await fetch(`${APP_CONFIG.apiBaseUrl}/api/stream-provider-url?stream=${encodeURIComponent(this.streamId)}`);
+      const { DirectHLSPlayerService } = await import('./services/direct-hls-player.service.js');
       
-      if (!response.ok) {
-        throw new Error(`Error API: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const streamUrl = data.url;
-
-      console.log('[CANAL] URL del stream obtenida:', streamUrl);
-
-      // Crear y cargar iframe con la URL directa
-      this._createIframe(container, streamUrl);
+      container.innerHTML = '';
+      
+      const player = new DirectHLSPlayerService(container);
+      await player.load(this.streamId);
       
       this._showLoading(false);
-      console.log('[CANAL] Player cargado exitosamente');
+      console.log('[CANAL] Player HLS directo cargado exitosamente');
       
     } catch (error) {
       console.error("[CANAL] Error loading stream:", error);

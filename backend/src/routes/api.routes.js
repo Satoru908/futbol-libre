@@ -4,13 +4,14 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const env = require('../config/env');
+const m3u8ProxyService = require('../services/m3u8-proxy.service');
 
 // Cache para datos de agenda y canales
 let agendaCache = null;
 let channelsCache = null;
 let agendaCacheTime = 0;
 let channelsCacheTime = 0;
-const CACHE_DURATION = 60000; // 1 minuto
+const CACHE_DURATION = 60000;
 
 /**
  * Carga un archivo JSON del backend/data con caching
@@ -160,6 +161,71 @@ router.get('/stream-provider-url', (req, res) => {
   } catch (error) {
     logger.error('Error en /stream-provider-url:', error.message);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+router.get('/m3u8-direct', async (req, res) => {
+  try {
+    const { stream } = req.query;
+    
+    if (!stream) {
+      return res.status(400).json({ error: 'Parámetro stream requerido' });
+    }
+
+    const baseUrl = env.PROVIDER_BASE_URL;
+    const providerUrl = `${baseUrl}?stream=${encodeURIComponent(stream)}`;
+    
+    const m3u8Url = await m3u8ProxyService.extractM3U8Url(providerUrl);
+    
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
+    });
+
+    res.json({
+      success: true,
+      streamId: stream,
+      m3u8Url: m3u8Url,
+      proxyUrl: `/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`,
+      timestamp: Date.now()
+    });
+
+  } catch (error) {
+    logger.error('Error en /m3u8-direct:', error.message);
+    res.status(500).json({ 
+      error: 'Error extrayendo M3U8',
+      message: error.message 
+    });
+  }
+});
+
+router.get('/m3u8-proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'Parámetro url requerido' });
+    }
+
+    const content = await m3u8ProxyService.proxyM3U8Content(url);
+    
+    res.set({
+      'Content-Type': 'application/vnd.apple.mpegurl',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
+      'Cache-Control': 'no-cache'
+    });
+
+    res.send(content);
+
+  } catch (error) {
+    logger.error('Error en /m3u8-proxy:', error.message);
+    res.status(500).json({ 
+      error: 'Error obteniendo M3U8',
+      message: error.message 
+    });
   }
 });
 
