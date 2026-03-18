@@ -40,15 +40,22 @@ async function loadAgenda() {
 }
 
 function setupAutoRefresh() {
-    // Actualizar cada 2 minutos para reflejar cambios de estado
+    // Actualizar cada 1 minuto para reflejar cambios de estado en tiempo real
     if (refreshInterval) {
         clearInterval(refreshInterval);
     }
     
     refreshInterval = setInterval(() => {
         console.log('Auto-actualizando agenda...');
+        // Solo re-renderizar con los datos existentes para actualizar estados
+        renderEvents(allEvents);
+    }, 60 * 1000); // 1 minuto
+    
+    // Recargar datos completos del servidor cada 5 minutos
+    setInterval(() => {
+        console.log('Recargando datos de agenda desde servidor...');
         loadAgenda();
-    }, 2 * 60 * 1000); // 2 minutos
+    }, 5 * 60 * 1000); // 5 minutos
 }
 
 function setupAgendaAccordion() {
@@ -116,8 +123,19 @@ function filterEvents(category) {
 function renderEvents(events) {
     const container = document.getElementById('events-container');
     
-    // Filtrar eventos finalizados en el frontend también
-    const activeEvents = events.filter(ev => !ev.isFinished);
+    // Calcular estados dinámicamente basados en la hora actual
+    const eventsWithDynamicStatus = events.map(ev => {
+        const timeInfo = calculateEventStatus(ev.time);
+        return {
+            ...ev,
+            isLive: timeInfo.isLive,
+            isUpcoming: timeInfo.isUpcoming,
+            isFinished: timeInfo.isFinished
+        };
+    });
+    
+    // Filtrar eventos finalizados
+    const activeEvents = eventsWithDynamicStatus.filter(ev => !ev.isFinished);
     
     if (!activeEvents || activeEvents.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:20px;color:#666">No se encontraron eventos activos.</div>';
@@ -161,4 +179,42 @@ function renderEvents(events) {
             </div>
         `;
     }).join('');
+}
+
+/**
+ * Calcula el estado de un evento basándose en su hora y la hora actual
+ */
+function calculateEventStatus(eventTime) {
+    try {
+        const [hours, minutes] = eventTime.split(':').map(Number);
+        const now = new Date();
+        const eventDate = new Date();
+        eventDate.setHours(hours, minutes, 0, 0);
+        
+        // Calcular diferencia en minutos
+        const diffMs = now - eventDate;
+        const diffMinutes = diffMs / (1000 * 60);
+        
+        // Evento finalizado: pasaron más de 3 horas desde su inicio
+        if (diffMinutes > 180) {
+            return { isLive: false, isUpcoming: false, isFinished: true };
+        }
+        
+        // Evento en vivo: ya empezó (con margen de -15 min) y no ha pasado más de 3 horas
+        if (diffMinutes >= -15 && diffMinutes <= 180) {
+            return { isLive: true, isUpcoming: false, isFinished: false };
+        }
+        
+        // Evento próximo: falta tiempo para que empiece
+        if (diffMinutes < -15) {
+            return { isLive: false, isUpcoming: true, isFinished: false };
+        }
+        
+        // Por defecto, próximo
+        return { isLive: false, isUpcoming: true, isFinished: false };
+        
+    } catch (e) {
+        console.error('Error calculando estado del evento:', e);
+        return { isLive: false, isUpcoming: true, isFinished: false };
+    }
 }
