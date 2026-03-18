@@ -9,6 +9,8 @@ export class DirectHLSPlayerService {
 
   async load(streamId) {
     try {
+      await this._ensureHlsLoaded();
+
       const response = await fetch(`${APP_CONFIG.apiBaseUrl}/api/m3u8-direct?stream=${encodeURIComponent(streamId)}`);
       
       if (!response.ok) {
@@ -29,13 +31,27 @@ export class DirectHLSPlayerService {
     }
   }
 
+  async _ensureHlsLoaded() {
+    if (window.Hls) {
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js';
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('No se pudo cargar HLS.js'));
+      document.head.appendChild(script);
+    });
+  }
+
   _createVideoPlayer(m3u8Url) {
     this.video = document.createElement('video');
     this.video.controls = true;
     this.video.autoplay = true;
     this.video.style.cssText = 'width: 100%; height: 100%; background: #000;';
 
-    if (Hls.isSupported()) {
+    if (window.Hls && Hls.isSupported()) {
       this.hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
