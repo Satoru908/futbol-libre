@@ -33,7 +33,20 @@ app.use(compression({
 app.use(express.json());
 app.use(requestLogger);
 
-// 4. Servir archivos estáticos del frontend
+// 4. Security Headers - Bloquear anuncios y scripts maliciosos
+app.use((req, res, next) => {
+  // Content Security Policy - Bloquea iframes de anuncios
+  res.setHeader('Content-Security-Policy', 
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; connect-src *; frame-src 'self';"
+  );
+  // Evitar clickjacking
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Prevenir MIME sniffing
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  next();
+});
+
+// 5. Servir archivos estáticos del frontend
 // Usar path.resolve para que funcione tanto en desarrollo como en Docker
 // En desarrollo: __dirname es backend/src, frontend está en ../../frontend
 // En Docker (Railway): __dirname es /app/src, frontend está en ../frontend
@@ -46,7 +59,7 @@ console.log('[INFO] Frontend path:', frontendPath);
 console.log('[INFO] NODE_ENV:', process.env.NODE_ENV);
 app.use(express.static(frontendPath));
 
-// 5. Routes API
+// 6. Routes API
 app.use('/api', apiRoutes);
 
 // Error handler

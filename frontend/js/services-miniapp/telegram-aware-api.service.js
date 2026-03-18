@@ -20,7 +20,108 @@ class _TelegramAwareApiService {
     
     if (this.telegramUserId) {
       console.log(`🔗 API Service conectado a usuario de Telegram: ${this.telegramUserId}`);
+      this.setupAdBlocking();
     }
+  }
+
+  /**
+   * Configura bloqueo de anuncios automático en Telegram Mini App
+   */
+  setupAdBlocking() {
+    try {
+      // 1. Forzar fullscreen para maximizar el espacio y minimizar anuncios
+      if (window.Telegram?.WebApp?.requestFullscreen) {
+        window.Telegram.WebApp.requestFullscreen();
+        console.log('📺 Fullscreen activado para miniapp');
+      }
+
+      // 2. Expandir la vista al máximo
+      if (window.Telegram?.WebApp?.expand) {
+        window.Telegram.WebApp.expand();
+        console.log('📐 Vista expandida');
+      }
+
+      // 3. Desactivar deslizamientos verticales (evita overlays de anuncios)
+      if (window.Telegram?.WebApp?.enableVerticalSwipes) {
+        window.Telegram.WebApp.enableVerticalSwipes(false);
+        console.log('🚫 Deslizamientos verticales desactivados');
+      }
+
+      // 4. Bloquear cargas de scripts de terceros de anuncios
+      this.blockThirdPartyScripts();
+
+      // 5. Bloquear iframes de anuncios
+      this.blockAdvertisingIframes();
+    } catch (error) {
+      console.warn('⚠️ Error configurando bloqueo de anuncios:', error.message);
+    }
+  }
+
+  /**
+   * Bloquea scripts de terceros conocidos para anuncios
+   */
+  blockThirdPartyScripts() {
+    const adScriptPatterns = [
+      'google-analytics',
+      'googletagmanager',
+      'pagead2',
+      'ads.',
+      'doubleclick',
+      'adroll',
+      'addthis'
+    ];
+
+    // Interceptar fetch de scripts de anuncios
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      if (typeof url === 'string') {
+        for (const pattern of adScriptPatterns) {
+          if (url.toLowerCase().includes(pattern)) {
+            console.log(`🚫 Bloqueado script de anuncio: ${url}`);
+            return Promise.reject(new Error('Anuncio bloqueado'));
+          }
+        }
+      }
+      return originalFetch.apply(this, args);
+    };
+  }
+
+  /**
+   * Bloquea iframes de anuncios comunes
+   */
+  blockAdvertisingIframes() {
+    // Observar cambios en el DOM para detectar iframes de anuncios
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.addedNodes.length) {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1 && node.tagName === 'IFRAME') {
+              const src = node.getAttribute('src') || '';
+              const id = node.getAttribute('id') || '';
+              
+              // Detectar iframes de anuncios comunes
+              const adIndicators = ['ads', 'ad-', 'doubleclick', 'pagead', 'googleads', 'adsense'];
+              const isAdFrame = adIndicators.some(indicator => 
+                src.toLowerCase().includes(indicator) || id.toLowerCase().includes(indicator)
+              );
+              
+              if (isAdFrame) {
+                console.log(`🚫 Iframe de anuncio bloqueado: ${id || src}`);
+                node.style.display = 'none';
+                node.remove();
+              }
+            }
+          });
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+      attributes: false
+    });
   }
 
   /**

@@ -24,12 +24,27 @@ const getAnalyticsId = () => {
   return '';
 };
 
+/**
+ * Detecta si la aplicación se está ejecutando como Telegram Mini App
+ */
+const isTelegramMiniApp = () => {
+  // Verificar si se ejecuta dentro del iframe de Telegram
+  try {
+    return window.Telegram !== undefined && window.Telegram.WebApp !== undefined;
+  } catch (e) {
+    return false;
+  }
+};
+
 export const APP_CONFIG = {
   apiBaseUrl: getApiBaseUrl(),
   channelsDataUrl: `${getApiBaseUrl()}/data/channels-complete.json`,
   agendaUrl: `${getApiBaseUrl()}/api/agenda`,
   siteUrl: getSiteUrl(),
-  gaId: getAnalyticsId()
+  gaId: getAnalyticsId(),
+  isTelegramMiniApp: isTelegramMiniApp(),
+  // Bloquear anuncios automáticamente en miniapp
+  blockAds: isTelegramMiniApp()
 };
 
 export const CATEGORY_ORDER = [
