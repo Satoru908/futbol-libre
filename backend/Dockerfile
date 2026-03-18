@@ -19,10 +19,9 @@ RUN npm ci --only=production
 # Copiar el código del proyecto manteniendo permisos
 COPY --chown=node . .
 
-# REQUISITO DE HUGGING FACE:
-# Forzar a la aplicación a escuchar en el puerto 7860
-ENV PORT=7860
-EXPOSE 7860
+# Puerto: por defecto 3000 (Railway). Se puede sobrescribir con PORT env var
+# Ejemplo para Hugging Face: docker run -e PORT=7860 ...
+EXPOSE 3000
 
 # Comando para iniciar el servidor
 CMD ["npm", "start"]
