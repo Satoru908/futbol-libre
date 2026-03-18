@@ -101,11 +101,7 @@ export class IframePlayerService {
         this.controls.style.background = 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.5))';
         this.controls.style.zIndex = '100';
 
-        this.controls.innerHTML = `
-            <button class="control-btn" id="customFullscreenBtn" title="Pantalla completa">
-                <span style="font-size: 18px;">⛶</span>
-            </button>
-        `;
+        this.controls.innerHTML = ``;
     }
 
     /**
@@ -114,16 +110,6 @@ export class IframePlayerService {
      * Con HTML sanitizado, la interacción es mucho más segura.
      */
     _setupEventListeners() {
-        const fsBtn = this.controls.querySelector('#customFullscreenBtn');
-
-        if (fsBtn) {
-            fsBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                this._toggleFullscreen();
-            });
-        }
-
         // Log de carga exitosa
         if (this.iframe) {
             this.iframe.onload = () => {
@@ -133,27 +119,6 @@ export class IframePlayerService {
             this.iframe.onerror = () => {
                 console.error('✗ Error al cargar stream desde backend');
             };
-        }
-    }
-
-    /**
-     * Alterna el modo de pantalla completa
-     */
-    _toggleFullscreen() {
-        if (!document.fullscreenElement) {
-            if (this.container.requestFullscreen) {
-                this.container.requestFullscreen();
-            } else if (this.container.webkitRequestFullscreen) { 
-                // Safari
-                this.container.webkitRequestFullscreen();
-            } else if (this.container.msRequestFullscreen) { 
-                // IE11
-                this.container.msRequestFullscreen();
-            }
-        } else {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            }
         }
     }
 

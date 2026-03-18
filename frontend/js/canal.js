@@ -214,24 +214,7 @@ class CanalPage {
     console.log('[CANAL] Iframe inyectado en DOM');
   }
 
-  /**
-   * Activa/desactiva pantalla completa
-   */
-  _toggleFullscreen(element) {
-    if (!document.fullscreenElement) {
-      if (element.requestFullscreen) {
-        element.requestFullscreen().catch(() => {});
-      } else if (element.webkitRequestFullscreen) {
-        element.webkitRequestFullscreen();
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-      }
-    }
-  }
+
 
   _showOfflineMessage() {
     const container = document.querySelector('.player-container');
@@ -241,7 +224,7 @@ class CanalPage {
           <div class="offline-icon">😴</div>
           <h3>Canal Fuera de Línea</h3>
           <p>Este canal no está transmitiendo en este momento.</p>
-          <a href="/index.html" class="btn-back">Ver otros canales</a>
+          <button onclick="window.location.href='/index.html'" class="btn-back">Ver otros canales</button>
         </div>
       `;
     }
@@ -316,19 +299,6 @@ class CanalPage {
         e.preventDefault();
         e.stopPropagation();
         window.location.replace('/index.html');
-      });
-    }
-
-    // Botón Pantalla Completa
-    const fullscreenBtn = document.getElementById('fullscreenBtn');
-    if (fullscreenBtn) {
-      fullscreenBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const playerContainer = document.querySelector('.player-container');
-        if (playerContainer) {
-          this._toggleFullscreen(playerContainer);
-        }
       });
     }
   }
