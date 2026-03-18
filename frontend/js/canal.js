@@ -8,7 +8,6 @@ class CanalPage {
     this.channelDataService = new ChannelDataService();
     this.iframe = null;
     this.streamId = null;
-    this.adBlockerState = null;
     
     this.init();
   }
@@ -159,7 +158,7 @@ class CanalPage {
   }
 
   /**
-   * Crea un iframe con la URL del stream y contador de anuncios
+   * Crea un iframe con la URL del stream
    */
   _createIframe(container, streamUrl) {
     // Limpiar contenedor
@@ -207,23 +206,12 @@ class CanalPage {
     this.iframe.src = streamUrl;
     this.iframe.setAttribute('allowfullscreen', 'true');
     this.iframe.setAttribute('scrolling', 'no');
-    this.iframe.setAttribute('allow', 'autoplay; fullscreen');
     this.iframe.className = 'stream-iframe';
     this.iframe.style.cssText = `
       width: 100%;
       height: 100%;
       border: none;
     `;
-
-    // Inicializar estado del bloqueador
-    this.adBlockerState = {
-      blockedCount: 0,
-      counterElement: adCounter,
-      counterSpan: adCounter.querySelector('#video-ad-count')
-    };
-
-    // Configurar bloqueo de anuncios
-    this._setupAdBlocking();
 
     // Crear controles personalizados
     const controls = document.createElement('div');
@@ -248,165 +236,7 @@ class CanalPage {
     mask.appendChild(controls);
     container.appendChild(mask);
 
-    console.log('[CANAL] Iframe inyectado con sistema anti-anuncios');
-  }
-
-  /**
-   * Configura el sistema de bloqueo de anuncios
-   */
-  _setupAdBlocking() {
-    const adPatterns = [
-      'doubleclick', 'googlesyndication', 'googleadservices',
-      'adroll', 'advertising', 'adserver',
-      'pagead', 'adsense', 'adsbygoogle',
-      'criteo', 'outbrain', 'taboola',
-      'popads', 'popcash', 'propeller',
-      'exoclick', 'adsterra', 'hilltopads',
-      '/ads/', '/ad/', 'ads.', 'ad.'
-    ];
-
-    const self = this;
-
-    // 1. Usar Telegram WebApp para prevenir navegación
-    if (window.Telegram?.WebApp) {
-      window.Telegram.WebApp.disableVerticalSwipes();
-      console.log('[AdBlocker] Telegram WebApp protección activada');
-    }
-
-    // 2. Bloquear fetch de anuncios
-    const originalFetch = window.fetch;
-    window.fetch = function(...args) {
-      const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
-      
-      for (const pattern of adPatterns) {
-        if (url.toLowerCase().includes(pattern)) {
-          console.log(`🚫 Bloqueado fetch: ${url}`);
-          self._incrementAdCounter();
-          return Promise.reject(new Error('Ad blocked'));
-        }
-      }
-      return originalFetch.apply(this, args);
-    };
-
-    // 3. Bloquear XMLHttpRequest de anuncios
-    const originalXHROpen = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
-      if (typeof url === 'string') {
-        for (const pattern of adPatterns) {
-          if (url.toLowerCase().includes(pattern)) {
-            console.log(`🚫 Bloqueado XHR: ${url}`);
-            self._incrementAdCounter();
-            return;
-          }
-        }
-      }
-      return originalXHROpen.call(this, method, url, ...rest);
-    };
-
-    // 4. Bloquear popups
-    const originalWindowOpen = window.open;
-    window.open = function(...args) {
-      console.log('🚫 Bloqueado popup:', args[0]);
-      self._incrementAdCounter();
-      return null;
-    };
-
-    // 5. Prevenir redirecciones con beforeunload
-    window.addEventListener('beforeunload', (e) => {
-      if (!self._userClicked) {
-        console.log('🚫 Bloqueada redirección automática');
-        e.preventDefault();
-        e.returnValue = '';
-        self._incrementAdCounter();
-      }
-    });
-
-    // 6. Detectar clicks del usuario
-    this._userClicked = false;
-    document.addEventListener('click', () => {
-      this._userClicked = true;
-      setTimeout(() => { this._userClicked = false; }, 1000);
-    }, true);
-
-    // 7. Bloquear cambios de hash sospechosos
-    window.addEventListener('hashchange', (e) => {
-      if (!self._userClicked) {
-        console.log('🚫 Bloqueado cambio de hash');
-        e.preventDefault();
-        self._incrementAdCounter();
-      }
-    });
-
-    // 8. Observar elementos de anuncios en el DOM
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === 1) {
-            const tag = node.tagName?.toLowerCase();
-            const id = (node.id || '').toLowerCase();
-            const className = (node.className || '').toLowerCase();
-            const src = (node.src || '').toLowerCase();
-
-            // No bloquear el iframe del video ni el contador
-            if (node === self.iframe || id === 'video-ad-counter' || node.closest?.('.player-container')) {
-              return;
-            }
-
-            const isAd = adPatterns.some(p => 
-              id.includes(p) || className.includes(p) || src.includes(p)
-            );
-
-            if (isAd) {
-              console.log(`🚫 Bloqueado elemento: ${tag} ${id || className}`);
-              node.remove();
-              self._incrementAdCounter();
-            }
-          }
-        });
-      });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // 9. Monitorear iframes adicionales
-    setInterval(() => {
-      const iframes = document.querySelectorAll('iframe');
-      iframes.forEach(iframe => {
-        if (iframe !== self.iframe && !iframe.closest('.player-container')) {
-          const src = (iframe.src || '').toLowerCase();
-          const isAd = adPatterns.some(p => src.includes(p));
-          
-          if (isAd) {
-            console.log('🚫 Bloqueado iframe de anuncio');
-            iframe.remove();
-            self._incrementAdCounter();
-          }
-        }
-      });
-    }, 2000);
-
-    console.log('[AdBlocker] Sistema de bloqueo activado');
-  }
-
-  /**
-   * Incrementa el contador de anuncios bloqueados
-   */
-  _incrementAdCounter() {
-    if (this.adBlockerState) {
-      this.adBlockerState.blockedCount++;
-      
-      if (this.adBlockerState.counterSpan) {
-        this.adBlockerState.counterSpan.textContent = this.adBlockerState.blockedCount;
-        
-        // Efecto visual
-        if (this.adBlockerState.counterElement) {
-          this.adBlockerState.counterElement.style.background = 'rgba(255, 107, 107, 0.9)';
-          setTimeout(() => {
-            this.adBlockerState.counterElement.style.background = 'rgba(46, 125, 50, 0.9)';
-          }, 300);
-        }
-      }
-    }
+    console.log('[CANAL] Iframe inyectado en DOM');
   }
 
   _showOfflineMessage() {
