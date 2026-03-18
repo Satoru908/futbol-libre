@@ -184,8 +184,12 @@ router.get('/m3u8-direct', async (req, res) => {
       'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
     });
 
-    const protocol = req.get('x-forwarded-proto') || req.protocol;
-    const proxyUrl = `${protocol}://${req.get('host')}/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`;
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const host = req.get('host');
+    
+    logger.info(`[m3u8-direct] Protocol: ${protocol}, Host: ${host}, x-forwarded-proto: ${req.get('x-forwarded-proto')}`);
+    
+    const proxyUrl = `${protocol}://${host}/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`;
 
     res.json({
       success: true,
@@ -213,7 +217,7 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const host = req.get('host');
     
     const modifiedContent = content.replace(
