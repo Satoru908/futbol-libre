@@ -37,7 +37,7 @@ app.use(requestLogger);
 app.use((req, res, next) => {
   // Content Security Policy - Lista blanca de dominios de video, bloquea anuncios
   res.setHeader('Content-Security-Policy', 
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; connect-src *; frame-src 'self' la14hd.com *.la14hd.com hls.com *.hls.com twitch.tv *.twitch.tv youtube.com *.youtube.com; media-src *;"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://telegram.org https://cdn.jsdelivr.net; script-src-elem 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src * data: blob:; font-src 'self' data:; connect-src *; frame-src 'self' la14hd.com *.la14hd.com hls.com *.hls.com twitch.tv *.twitch.tv youtube.com *.youtube.com; media-src * blob: data:;"
   );
   // Permitir que se use en iframes (necesario para Telegram Mini App)
   res.setHeader('X-Frame-Options', 'ALLOWALL');

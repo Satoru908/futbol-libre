@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
 const logger = require('../utils/logger');
 const env = require('../config/env');
 const m3u8ProxyService = require('../services/m3u8-proxy.service');
@@ -183,11 +184,12 @@ router.get('/m3u8-direct', async (req, res) => {
       'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
     });
 
+    const proxyUrl = `${req.protocol}://${req.get('host')}/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`;
+
     res.json({
       success: true,
       streamId: stream,
-      m3u8Url: m3u8Url,
-      proxyUrl: `/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`,
+      m3u8Url: proxyUrl,
       timestamp: Date.now()
     });
 
@@ -210,6 +212,11 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
+    const modifiedContent = content.replace(
+      /(https?:\/\/[^\s]+\.ts[^\s]*)/g,
+      (match) => `/api/segment-proxy?url=${encodeURIComponent(match)}`
+    );
+    
     res.set({
       'Content-Type': 'application/vnd.apple.mpegurl',
       'Access-Control-Allow-Origin': '*',
@@ -218,12 +225,49 @@ router.get('/m3u8-proxy', async (req, res) => {
       'Cache-Control': 'no-cache'
     });
 
-    res.send(content);
+    res.send(modifiedContent);
 
   } catch (error) {
     logger.error('Error en /m3u8-proxy:', error.message);
     res.status(500).json({ 
       error: 'Error obteniendo M3U8',
+      message: error.message 
+    });
+  }
+});
+
+router.get('/segment-proxy', async (req, res) => {
+  try {
+    const { url } = req.query;
+    
+    if (!url) {
+      return res.status(400).json({ error: 'Parámetro url requerido' });
+    }
+
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://la14hd.com/',
+        'Origin': 'https://la14hd.com'
+      },
+      responseType: 'arraybuffer',
+      timeout: 15000
+    });
+    
+    res.set({
+      'Content-Type': response.headers['content-type'] || 'video/mp2t',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
+      'Cache-Control': 'public, max-age=3600'
+    });
+
+    res.send(Buffer.from(response.data));
+
+  } catch (error) {
+    logger.error('Error en /segment-proxy:', error.message);
+    res.status(500).json({ 
+      error: 'Error obteniendo segmento',
       message: error.message 
     });
   }

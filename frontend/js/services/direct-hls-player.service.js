@@ -62,17 +62,33 @@ export class DirectHLSPlayerService {
       this.hls.attachMedia(this.video);
 
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        console.log('[DirectHLS] ✅ Manifest cargado');
         this.video.play().catch(e => console.warn('Autoplay bloqueado:', e));
       });
 
       this.hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error('[DirectHLS] Error:', data.type, data.details);
         if (data.fatal) {
-          console.error('[DirectHLS] Error fatal:', data);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.error('[DirectHLS] Error de red fatal, intentando recuperar...');
+              this.hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.error('[DirectHLS] Error de media fatal, intentando recuperar...');
+              this.hls.recoverMediaError();
+              break;
+            default:
+              console.error('[DirectHLS] Error fatal irrecuperable');
+              this.hls.destroy();
+              break;
+          }
         }
       });
 
     } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
       this.video.src = m3u8Url;
+      this.video.play().catch(e => console.warn('Autoplay bloqueado:', e));
     }
 
     this.container.appendChild(this.video);
