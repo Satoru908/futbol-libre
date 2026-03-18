@@ -214,6 +214,11 @@ class CanalPage {
       border: none;
     `;
 
+    // Intentar bloquear el overlay de anuncios cuando cargue
+    this.iframe.addEventListener('load', () => {
+      this._tryBlockAdOverlay();
+    });
+
     // Crear controles personalizados
     const controls = document.createElement('div');
     controls.className = 'custom-player-controls';
@@ -238,6 +243,78 @@ class CanalPage {
     container.appendChild(mask);
 
     console.log('[CANAL] Iframe inyectado en DOM');
+  }
+
+  /**
+   * Intenta bloquear el overlay de anuncios del iframe
+   */
+  _tryBlockAdOverlay() {
+    try {
+      const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow?.document;
+      
+      if (!iframeDoc) {
+        console.warn('[AdBlocker] No se puede acceder al iframe (cross-origin)');
+        return;
+      }
+
+      console.log('[AdBlocker] ✅ Acceso al iframe obtenido');
+
+      // Inyectar CSS para desactivar pointer-events del overlay
+      const style = iframeDoc.createElement('style');
+      style.textContent = `
+        /* Desactivar clicks en el overlay de anuncios */
+        #dontfoid,
+        [znid],
+        div[style*="z-index: 2147483647"] {
+          pointer-events: none !important;
+          display: none !important;
+        }
+        
+        /* Asegurar que el video sea clickeable */
+        #player,
+        [data-player],
+        .player-poster,
+        video {
+          pointer-events: auto !important;
+        }
+      `;
+      iframeDoc.head.appendChild(style);
+      console.log('[AdBlocker] ✅ CSS inyectado - overlay desactivado');
+
+      // Eliminar el overlay si ya existe
+      const overlay = iframeDoc.getElementById('dontfoid');
+      if (overlay) {
+        overlay.remove();
+        console.log('[AdBlocker] ✅ Overlay eliminado');
+      }
+
+      // Observar y eliminar si se crea después
+      const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          mutation.addedNodes.forEach((node) => {
+            if (node.nodeType === 1) {
+              const id = node.id?.toLowerCase();
+              const znid = node.getAttribute?.('znid');
+              
+              if (id === 'dontfoid' || znid) {
+                console.log('[AdBlocker] 🚫 Overlay detectado y eliminado');
+                node.remove();
+              }
+            }
+          });
+        });
+      });
+
+      observer.observe(iframeDoc.body, {
+        childList: true,
+        subtree: true
+      });
+
+      console.log('[AdBlocker] ✅ Observer activado');
+
+    } catch (e) {
+      console.warn('[AdBlocker] ❌ Error:', e.message);
+    }
   }
 
   _showOfflineMessage() {
