@@ -158,7 +158,7 @@ class CanalPage {
   }
 
   /**
-   * Crea un iframe con la URL del stream
+   * Crea un iframe con la URL del stream y sistema de bloqueo de anuncios
    */
   _createIframe(container, streamUrl) {
     // Limpiar contenedor
@@ -177,17 +177,51 @@ class CanalPage {
       overflow: hidden;
     `;
 
+    // Crear contador de anuncios bloqueados (solo visible en el reproductor)
+    const adCounter = document.createElement('div');
+    adCounter.id = 'video-ad-counter';
+    adCounter.style.cssText = `
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(46, 125, 50, 0.9);
+      color: white;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      transition: background 0.3s ease;
+      pointer-events: none;
+    `;
+    adCounter.innerHTML = '🛡️ Anuncios bloqueados: <span id="video-ad-count" style="font-weight: 700;">0</span>';
+
     // Crear iframe
     this.iframe = document.createElement('iframe');
     this.iframe.src = streamUrl;
     this.iframe.setAttribute('allowfullscreen', 'true');
     this.iframe.setAttribute('scrolling', 'no');
+    this.iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
     this.iframe.className = 'stream-iframe';
     this.iframe.style.cssText = `
       width: 100%;
       height: 100%;
       border: none;
     `;
+
+    // Inicializar sistema de bloqueo de anuncios
+    this._initAdBlocker(adCounter);
+
+    // Monitorear carga del iframe
+    this.iframe.addEventListener('load', () => {
+      console.log('[CANAL] Iframe cargado, iniciando monitoreo de anuncios...');
+      this._monitorIframeForAds();
+    });
 
     // Crear controles personalizados
     const controls = document.createElement('div');
@@ -208,10 +242,230 @@ class CanalPage {
     
     // Ensamblar
     mask.appendChild(this.iframe);
+    mask.appendChild(adCounter);
     mask.appendChild(controls);
     container.appendChild(mask);
 
-    console.log('[CANAL] Iframe inyectado en DOM');
+    console.log('[CANAL] Iframe inyectado en DOM con sistema anti-anuncios');
+  }
+
+  /**
+   * Inicializa el sistema de bloqueo de anuncios
+   */
+  _initAdBlocker(counterElement) {
+    this.adBlockerState = {
+      blockedCount: 0,
+      counterElement: counterElement,
+      counterSpan: counterElement.querySelector('#video-ad-count')
+    };
+
+    // Bloquear scripts de anuncios conocidos
+    this._blockAdScripts();
+    
+    // Bloquear elementos de anuncios en el DOM
+    this._blockAdElements();
+  }
+
+  /**
+   * Bloquea scripts de anuncios conocidos
+   */
+  _blockAdScripts() {
+    const adPatterns = [
+      'doubleclick', 'googlesyndication', 'googleadservices',
+      'adroll', 'ads.', '/ads/', 'ad.', '/ad/',
+      'advertising', 'adserver', 'adservice',
+      'pagead', 'adsense', 'adsbygoogle',
+      'criteo', 'outbrain', 'taboola',
+      'popads', 'popcash', 'propeller',
+      'exoclick', 'adsterra', 'hilltopads'
+    ];
+
+    // Interceptar fetch
+    const originalFetch = window.fetch;
+    window.fetch = (...args) => {
+      const url = args[0];
+      if (typeof url === 'string') {
+        for (const pattern of adPatterns) {
+          if (url.toLowerCase().includes(pattern)) {
+            console.log(`🚫 Bloqueado fetch de anuncio: ${url}`);
+            this._incrementAdCounter();
+            return Promise.reject(new Error('Ad blocked'));
+          }
+        }
+      }
+      return originalFetch.apply(window, args);
+    };
+
+    // Interceptar XMLHttpRequest
+    const originalOpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+      if (typeof url === 'string') {
+        for (const pattern of adPatterns) {
+          if (url.toLowerCase().includes(pattern)) {
+            console.log(`🚫 Bloqueado XHR de anuncio: ${url}`);
+            // No llamar al original
+            return;
+          }
+        }
+      }
+      return originalOpen.call(this, method, url, ...rest);
+    };
+  }
+
+  /**
+   * Bloquea elementos de anuncios en el DOM
+   */
+  _blockAdElements() {
+    // Observar cambios en el DOM para detectar anuncios
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            this._checkAndBlockAdElement(node);
+          }
+        });
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+
+    // Verificar elementos existentes
+    this._scanExistingElements();
+  }
+
+  /**
+   * Escanea elementos existentes en busca de anuncios
+   */
+  _scanExistingElements() {
+    const adSelectors = [
+      '[id*="ad-"]', '[id*="ads-"]', '[class*="ad-"]', '[class*="ads-"]',
+      '[id*="banner"]', '[class*="banner"]',
+      '[id*="popup"]', '[class*="popup"]',
+      'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
+      'iframe[src*="ads"]', 'iframe[src*="/ad/"]'
+    ];
+
+    adSelectors.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        if (this._isAdElement(el)) {
+          console.log(`🚫 Bloqueado elemento de anuncio: ${el.tagName} ${el.id || el.className}`);
+          el.remove();
+          this._incrementAdCounter();
+        }
+      });
+    });
+  }
+
+  /**
+   * Verifica si un elemento es un anuncio
+   */
+  _checkAndBlockAdElement(element) {
+    if (this._isAdElement(element)) {
+      console.log(`🚫 Bloqueado elemento de anuncio: ${element.tagName} ${element.id || element.className}`);
+      element.remove();
+      this._incrementAdCounter();
+    }
+  }
+
+  /**
+   * Determina si un elemento es un anuncio
+   */
+  _isAdElement(element) {
+    const adKeywords = ['ad', 'ads', 'banner', 'popup', 'sponsor', 'promo'];
+    const id = (element.id || '').toLowerCase();
+    const className = (element.className || '').toLowerCase();
+    const src = (element.src || '').toLowerCase();
+
+    return adKeywords.some(keyword => 
+      id.includes(keyword) || 
+      className.includes(keyword) ||
+      src.includes(keyword)
+    );
+  }
+
+  /**
+   * Monitorea el iframe en busca de anuncios
+   */
+  _monitorIframeForAds() {
+    // Intentar acceder al contenido del iframe (solo funciona si es same-origin)
+    try {
+      const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow.document;
+      
+      if (iframeDoc) {
+        console.log('[CANAL] Acceso al contenido del iframe obtenido');
+        
+        // Observar cambios en el iframe
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+              if (node.nodeType === 1 && this._isAdElement(node)) {
+                console.log(`🚫 Bloqueado anuncio en iframe: ${node.tagName}`);
+                node.remove();
+                this._incrementAdCounter();
+              }
+            });
+          });
+        });
+
+        observer.observe(iframeDoc.body, {
+          childList: true,
+          subtree: true
+        });
+      }
+    } catch (e) {
+      console.warn('[CANAL] No se puede acceder al contenido del iframe (cross-origin)');
+      // Usar estrategia alternativa: monitorear tamaño y comportamiento
+      this._monitorIframeBehavior();
+    }
+  }
+
+  /**
+   * Monitorea el comportamiento del iframe para detectar anuncios
+   */
+  _monitorIframeBehavior() {
+    // Detectar popups y ventanas emergentes
+    const originalWindowOpen = window.open;
+    window.open = (...args) => {
+      console.log('🚫 Bloqueado intento de popup');
+      this._incrementAdCounter();
+      return null;
+    };
+
+    // Detectar redirecciones sospechosas
+    let lastUrl = window.location.href;
+    setInterval(() => {
+      if (window.location.href !== lastUrl) {
+        console.log('🚫 Bloqueada redirección sospechosa');
+        window.history.back();
+        this._incrementAdCounter();
+        lastUrl = window.location.href;
+      }
+    }, 100);
+  }
+
+  /**
+   * Incrementa el contador de anuncios bloqueados
+   */
+  _incrementAdCounter() {
+    if (this.adBlockerState) {
+      this.adBlockerState.blockedCount++;
+      
+      if (this.adBlockerState.counterSpan) {
+        this.adBlockerState.counterSpan.textContent = this.adBlockerState.blockedCount;
+        
+        // Efecto visual
+        if (this.adBlockerState.counterElement) {
+          this.adBlockerState.counterElement.style.background = 'rgba(255, 107, 107, 0.9)';
+          setTimeout(() => {
+            this.adBlockerState.counterElement.style.background = 'rgba(46, 125, 50, 0.9)';
+          }, 300);
+        }
+      }
+    }
   }
 
 
