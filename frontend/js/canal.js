@@ -265,9 +265,10 @@ class CanalPage {
       '/ads/', '/ad/', 'ads.', 'ad.'
     ];
 
+    const self = this;
+
     // Bloquear fetch de anuncios
     const originalFetch = window.fetch;
-    const self = this;
     window.fetch = function(...args) {
       const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
       
@@ -296,14 +297,32 @@ class CanalPage {
       return originalXHROpen.call(this, method, url, ...rest);
     };
 
-    // Bloquear popups
-    window.open = function() {
+    // Bloquear popups y redirecciones
+    const originalWindowOpen = window.open;
+    window.open = function(...args) {
       console.log('🚫 Bloqueado popup');
       self._incrementAdCounter();
       return null;
     };
 
-    // Observar elementos de anuncios en el DOM
+    // Prevenir redirecciones no deseadas
+    let isUserInteraction = false;
+    document.addEventListener('click', () => {
+      isUserInteraction = true;
+      setTimeout(() => { isUserInteraction = false; }, 100);
+    }, true);
+
+    const originalAssign = window.location.assign;
+    window.location.assign = function(url) {
+      if (!isUserInteraction) {
+        console.log('🚫 Bloqueada redirección automática:', url);
+        self._incrementAdCounter();
+        return;
+      }
+      return originalAssign.call(window.location, url);
+    };
+
+    // Observar elementos de anuncios en el DOM principal
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
@@ -313,12 +332,17 @@ class CanalPage {
             const className = (node.className || '').toLowerCase();
             const src = (node.src || '').toLowerCase();
 
+            // No bloquear el iframe del video ni el contador
+            if (node === self.iframe || id === 'video-ad-counter') {
+              return;
+            }
+
             const isAd = adPatterns.some(p => 
               id.includes(p) || className.includes(p) || src.includes(p)
             );
 
             if (isAd) {
-              console.log(`🚫 Bloqueado elemento: ${tag}`);
+              console.log(`🚫 Bloqueado elemento: ${tag} ${id || className}`);
               node.remove();
               self._incrementAdCounter();
             }
@@ -329,15 +353,7 @@ class CanalPage {
 
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Simular bloqueos iniciales (ya que el iframe es cross-origin)
-    setTimeout(() => {
-      for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-          console.log('🚫 Detectado patrón de anuncio');
-          this._incrementAdCounter();
-        }, i * 1000);
-      }
-    }, 2000);
+    console.log('[AdBlocker] Sistema de bloqueo activado');
   }
 
   /**
