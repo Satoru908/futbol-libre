@@ -35,8 +35,15 @@ app.use(requestLogger);
 
 // 4. Servir archivos estáticos del frontend
 // Usar path.resolve para que funcione tanto en desarrollo como en Docker
-const frontendPath = path.resolve(__dirname, '..', '..', 'frontend');
-console.log('[INFO] Sirviendo frontend desde:', frontendPath);
+// En desarrollo: __dirname es backend/src, frontend está en ../../frontend
+// En Docker (Railway): __dirname es /app/src, frontend está en ../frontend
+const isDevelopment = process.env.NODE_ENV !== 'production';
+const frontendPath = isDevelopment
+  ? path.resolve(__dirname, '../../frontend')
+  : path.resolve(__dirname, '../frontend');
+  
+console.log('[INFO] Frontend path:', frontendPath);
+console.log('[INFO] NODE_ENV:', process.env.NODE_ENV);
 app.use(express.static(frontendPath));
 
 // 5. Routes API
