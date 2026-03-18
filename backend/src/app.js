@@ -34,7 +34,9 @@ app.use(express.json());
 app.use(requestLogger);
 
 // 4. Servir archivos estáticos del frontend
-const frontendPath = path.join(__dirname, '../../frontend');
+// Usar path.resolve para que funcione tanto en desarrollo como en Docker
+const frontendPath = path.resolve(__dirname, '..', '..', 'frontend');
+console.log('[INFO] Sirviendo frontend desde:', frontendPath);
 app.use(express.static(frontendPath));
 
 // 5. Routes API
@@ -43,9 +45,13 @@ app.use('/api', apiRoutes);
 // Error handler
 app.use(errorHandler);
 
-// Healthcheck
+// Healthcheck - Debe estar DESPUÉS de los middlewares estáticos
 app.get('/', (req, res) => {
-    res.status(200).send('API Backend Fútbol Libre - Direct Stream Mode');
+    res.status(200).json({ 
+      status: 'OK',
+      message: 'API Backend Fútbol Libre - Direct Stream Mode',
+      frontend: 'Disponible en /'
+    });
 });
 
 // Inicializar tareas programadas
