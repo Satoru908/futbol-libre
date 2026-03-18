@@ -267,7 +267,13 @@ class CanalPage {
 
     const self = this;
 
-    // Bloquear fetch de anuncios
+    // 1. Usar Telegram WebApp para prevenir navegación
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.disableVerticalSwipes();
+      console.log('[AdBlocker] Telegram WebApp protección activada');
+    }
+
+    // 2. Bloquear fetch de anuncios
     const originalFetch = window.fetch;
     window.fetch = function(...args) {
       const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
@@ -282,7 +288,7 @@ class CanalPage {
       return originalFetch.apply(this, args);
     };
 
-    // Bloquear XMLHttpRequest de anuncios
+    // 3. Bloquear XMLHttpRequest de anuncios
     const originalXHROpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
       if (typeof url === 'string') {
@@ -297,32 +303,41 @@ class CanalPage {
       return originalXHROpen.call(this, method, url, ...rest);
     };
 
-    // Bloquear popups y redirecciones
+    // 4. Bloquear popups
     const originalWindowOpen = window.open;
     window.open = function(...args) {
-      console.log('🚫 Bloqueado popup');
+      console.log('🚫 Bloqueado popup:', args[0]);
       self._incrementAdCounter();
       return null;
     };
 
-    // Prevenir redirecciones no deseadas
-    let isUserInteraction = false;
+    // 5. Prevenir redirecciones con beforeunload
+    window.addEventListener('beforeunload', (e) => {
+      if (!self._userClicked) {
+        console.log('🚫 Bloqueada redirección automática');
+        e.preventDefault();
+        e.returnValue = '';
+        self._incrementAdCounter();
+      }
+    });
+
+    // 6. Detectar clicks del usuario
+    this._userClicked = false;
     document.addEventListener('click', () => {
-      isUserInteraction = true;
-      setTimeout(() => { isUserInteraction = false; }, 100);
+      this._userClicked = true;
+      setTimeout(() => { this._userClicked = false; }, 1000);
     }, true);
 
-    const originalAssign = window.location.assign;
-    window.location.assign = function(url) {
-      if (!isUserInteraction) {
-        console.log('🚫 Bloqueada redirección automática:', url);
+    // 7. Bloquear cambios de hash sospechosos
+    window.addEventListener('hashchange', (e) => {
+      if (!self._userClicked) {
+        console.log('🚫 Bloqueado cambio de hash');
+        e.preventDefault();
         self._incrementAdCounter();
-        return;
       }
-      return originalAssign.call(window.location, url);
-    };
+    });
 
-    // Observar elementos de anuncios en el DOM principal
+    // 8. Observar elementos de anuncios en el DOM
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
@@ -333,7 +348,7 @@ class CanalPage {
             const src = (node.src || '').toLowerCase();
 
             // No bloquear el iframe del video ni el contador
-            if (node === self.iframe || id === 'video-ad-counter') {
+            if (node === self.iframe || id === 'video-ad-counter' || node.closest?.('.player-container')) {
               return;
             }
 
@@ -352,6 +367,23 @@ class CanalPage {
     });
 
     observer.observe(document.body, { childList: true, subtree: true });
+
+    // 9. Monitorear iframes adicionales
+    setInterval(() => {
+      const iframes = document.querySelectorAll('iframe');
+      iframes.forEach(iframe => {
+        if (iframe !== self.iframe && !iframe.closest('.player-container')) {
+          const src = (iframe.src || '').toLowerCase();
+          const isAd = adPatterns.some(p => src.includes(p));
+          
+          if (isAd) {
+            console.log('🚫 Bloqueado iframe de anuncio');
+            iframe.remove();
+            self._incrementAdCounter();
+          }
+        }
+      });
+    }, 2000);
 
     console.log('[AdBlocker] Sistema de bloqueo activado');
   }
