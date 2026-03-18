@@ -18,7 +18,7 @@ async function loadAgenda() {
     try {
         container.innerHTML = '<div style="text-align:center;padding:20px">Cargando agenda...</div>';
         
-        const response = await fetch(APP_CONFIG.agendaDataUrl + '?t=' + Date.now());
+        const response = await fetch(APP_CONFIG.agendaUrl + '?t=' + Date.now());
         if (!response.ok) throw new Error('No se pudo cargar la agenda. Status: ' + response.status);
         
         const responseData = await response.json();
