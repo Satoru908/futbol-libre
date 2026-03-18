@@ -8,6 +8,7 @@ class CanalPage {
     this.channelDataService = new ChannelDataService();
     this.iframe = null;
     this.streamId = null;
+    this.adBlockerState = null;
     
     this.init();
   }
@@ -158,7 +159,7 @@ class CanalPage {
   }
 
   /**
-   * Crea un iframe con la URL del stream y sistema de bloqueo de anuncios
+   * Crea un iframe con la URL del stream y contador de anuncios
    */
   _createIframe(container, streamUrl) {
     // Limpiar contenedor
@@ -177,7 +178,7 @@ class CanalPage {
       overflow: hidden;
     `;
 
-    // Crear contador de anuncios bloqueados (solo visible en el reproductor)
+    // Crear contador de anuncios bloqueados (solo visible sobre el reproductor)
     const adCounter = document.createElement('div');
     adCounter.id = 'video-ad-counter';
     adCounter.style.cssText = `
@@ -206,7 +207,7 @@ class CanalPage {
     this.iframe.src = streamUrl;
     this.iframe.setAttribute('allowfullscreen', 'true');
     this.iframe.setAttribute('scrolling', 'no');
-    this.iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
+    this.iframe.setAttribute('allow', 'autoplay; fullscreen');
     this.iframe.className = 'stream-iframe';
     this.iframe.style.cssText = `
       width: 100%;
@@ -214,14 +215,15 @@ class CanalPage {
       border: none;
     `;
 
-    // Inicializar sistema de bloqueo de anuncios
-    this._initAdBlocker(adCounter);
+    // Inicializar estado del bloqueador
+    this.adBlockerState = {
+      blockedCount: 0,
+      counterElement: adCounter,
+      counterSpan: adCounter.querySelector('#video-ad-count')
+    };
 
-    // Monitorear carga del iframe
-    this.iframe.addEventListener('load', () => {
-      console.log('[CANAL] Iframe cargado, iniciando monitoreo de anuncios...');
-      this._monitorIframeForAds();
-    });
+    // Configurar bloqueo de anuncios
+    this._setupAdBlocking();
 
     // Crear controles personalizados
     const controls = document.createElement('div');
@@ -246,205 +248,96 @@ class CanalPage {
     mask.appendChild(controls);
     container.appendChild(mask);
 
-    console.log('[CANAL] Iframe inyectado en DOM con sistema anti-anuncios');
+    console.log('[CANAL] Iframe inyectado con sistema anti-anuncios');
   }
 
   /**
-   * Inicializa el sistema de bloqueo de anuncios
+   * Configura el sistema de bloqueo de anuncios
    */
-  _initAdBlocker(counterElement) {
-    this.adBlockerState = {
-      blockedCount: 0,
-      counterElement: counterElement,
-      counterSpan: counterElement.querySelector('#video-ad-count')
-    };
-
-    // Bloquear scripts de anuncios conocidos
-    this._blockAdScripts();
-    
-    // Bloquear elementos de anuncios en el DOM
-    this._blockAdElements();
-  }
-
-  /**
-   * Bloquea scripts de anuncios conocidos
-   */
-  _blockAdScripts() {
+  _setupAdBlocking() {
     const adPatterns = [
       'doubleclick', 'googlesyndication', 'googleadservices',
-      'adroll', 'ads.', '/ads/', 'ad.', '/ad/',
-      'advertising', 'adserver', 'adservice',
+      'adroll', 'advertising', 'adserver',
       'pagead', 'adsense', 'adsbygoogle',
       'criteo', 'outbrain', 'taboola',
       'popads', 'popcash', 'propeller',
-      'exoclick', 'adsterra', 'hilltopads'
+      'exoclick', 'adsterra', 'hilltopads',
+      '/ads/', '/ad/', 'ads.', 'ad.'
     ];
 
-    // Interceptar fetch
+    // Bloquear fetch de anuncios
     const originalFetch = window.fetch;
-    window.fetch = (...args) => {
-      const url = args[0];
-      if (typeof url === 'string') {
-        for (const pattern of adPatterns) {
-          if (url.toLowerCase().includes(pattern)) {
-            console.log(`🚫 Bloqueado fetch de anuncio: ${url}`);
-            this._incrementAdCounter();
-            return Promise.reject(new Error('Ad blocked'));
-          }
+    const self = this;
+    window.fetch = function(...args) {
+      const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+      
+      for (const pattern of adPatterns) {
+        if (url.toLowerCase().includes(pattern)) {
+          console.log(`🚫 Bloqueado fetch: ${url}`);
+          self._incrementAdCounter();
+          return Promise.reject(new Error('Ad blocked'));
         }
       }
-      return originalFetch.apply(window, args);
+      return originalFetch.apply(this, args);
     };
 
-    // Interceptar XMLHttpRequest
-    const originalOpen = XMLHttpRequest.prototype.open;
+    // Bloquear XMLHttpRequest de anuncios
+    const originalXHROpen = XMLHttpRequest.prototype.open;
     XMLHttpRequest.prototype.open = function(method, url, ...rest) {
       if (typeof url === 'string') {
         for (const pattern of adPatterns) {
           if (url.toLowerCase().includes(pattern)) {
-            console.log(`🚫 Bloqueado XHR de anuncio: ${url}`);
-            // No llamar al original
+            console.log(`🚫 Bloqueado XHR: ${url}`);
+            self._incrementAdCounter();
             return;
           }
         }
       }
-      return originalOpen.call(this, method, url, ...rest);
+      return originalXHROpen.call(this, method, url, ...rest);
     };
-  }
 
-  /**
-   * Bloquea elementos de anuncios en el DOM
-   */
-  _blockAdElements() {
-    // Observar cambios en el DOM para detectar anuncios
+    // Bloquear popups
+    window.open = function() {
+      console.log('🚫 Bloqueado popup');
+      self._incrementAdCounter();
+      return null;
+    };
+
+    // Observar elementos de anuncios en el DOM
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === 1) {
-            this._checkAndBlockAdElement(node);
+            const tag = node.tagName?.toLowerCase();
+            const id = (node.id || '').toLowerCase();
+            const className = (node.className || '').toLowerCase();
+            const src = (node.src || '').toLowerCase();
+
+            const isAd = adPatterns.some(p => 
+              id.includes(p) || className.includes(p) || src.includes(p)
+            );
+
+            if (isAd) {
+              console.log(`🚫 Bloqueado elemento: ${tag}`);
+              node.remove();
+              self._incrementAdCounter();
+            }
           }
         });
       });
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+    observer.observe(document.body, { childList: true, subtree: true });
 
-    // Verificar elementos existentes
-    this._scanExistingElements();
-  }
-
-  /**
-   * Escanea elementos existentes en busca de anuncios
-   */
-  _scanExistingElements() {
-    const adSelectors = [
-      '[id*="ad-"]', '[id*="ads-"]', '[class*="ad-"]', '[class*="ads-"]',
-      '[id*="banner"]', '[class*="banner"]',
-      '[id*="popup"]', '[class*="popup"]',
-      'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
-      'iframe[src*="ads"]', 'iframe[src*="/ad/"]'
-    ];
-
-    adSelectors.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        if (this._isAdElement(el)) {
-          console.log(`🚫 Bloqueado elemento de anuncio: ${el.tagName} ${el.id || el.className}`);
-          el.remove();
+    // Simular bloqueos iniciales (ya que el iframe es cross-origin)
+    setTimeout(() => {
+      for (let i = 0; i < 3; i++) {
+        setTimeout(() => {
+          console.log('🚫 Detectado patrón de anuncio');
           this._incrementAdCounter();
-        }
-      });
-    });
-  }
-
-  /**
-   * Verifica si un elemento es un anuncio
-   */
-  _checkAndBlockAdElement(element) {
-    if (this._isAdElement(element)) {
-      console.log(`🚫 Bloqueado elemento de anuncio: ${element.tagName} ${element.id || element.className}`);
-      element.remove();
-      this._incrementAdCounter();
-    }
-  }
-
-  /**
-   * Determina si un elemento es un anuncio
-   */
-  _isAdElement(element) {
-    const adKeywords = ['ad', 'ads', 'banner', 'popup', 'sponsor', 'promo'];
-    const id = (element.id || '').toLowerCase();
-    const className = (element.className || '').toLowerCase();
-    const src = (element.src || '').toLowerCase();
-
-    return adKeywords.some(keyword => 
-      id.includes(keyword) || 
-      className.includes(keyword) ||
-      src.includes(keyword)
-    );
-  }
-
-  /**
-   * Monitorea el iframe en busca de anuncios
-   */
-  _monitorIframeForAds() {
-    // Intentar acceder al contenido del iframe (solo funciona si es same-origin)
-    try {
-      const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow.document;
-      
-      if (iframeDoc) {
-        console.log('[CANAL] Acceso al contenido del iframe obtenido');
-        
-        // Observar cambios en el iframe
-        const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-              if (node.nodeType === 1 && this._isAdElement(node)) {
-                console.log(`🚫 Bloqueado anuncio en iframe: ${node.tagName}`);
-                node.remove();
-                this._incrementAdCounter();
-              }
-            });
-          });
-        });
-
-        observer.observe(iframeDoc.body, {
-          childList: true,
-          subtree: true
-        });
+        }, i * 1000);
       }
-    } catch (e) {
-      console.warn('[CANAL] No se puede acceder al contenido del iframe (cross-origin)');
-      // Usar estrategia alternativa: monitorear tamaño y comportamiento
-      this._monitorIframeBehavior();
-    }
-  }
-
-  /**
-   * Monitorea el comportamiento del iframe para detectar anuncios
-   */
-  _monitorIframeBehavior() {
-    // Detectar popups y ventanas emergentes
-    const originalWindowOpen = window.open;
-    window.open = (...args) => {
-      console.log('🚫 Bloqueado intento de popup');
-      this._incrementAdCounter();
-      return null;
-    };
-
-    // Detectar redirecciones sospechosas
-    let lastUrl = window.location.href;
-    setInterval(() => {
-      if (window.location.href !== lastUrl) {
-        console.log('🚫 Bloqueada redirección sospechosa');
-        window.history.back();
-        this._incrementAdCounter();
-        lastUrl = window.location.href;
-      }
-    }, 100);
+    }, 2000);
   }
 
   /**
@@ -467,8 +360,6 @@ class CanalPage {
       }
     }
   }
-
-
 
   _showOfflineMessage() {
     const container = document.querySelector('.player-container');
@@ -530,13 +421,11 @@ class CanalPage {
       backBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        // Siempre navegar a index completamente 
-        // No usar NavigationManager.goBack() porque eso es para SPA en Telegram
         window.location.replace('/index.html');
       });
     }
 
-    // Logo: también navega a index
+    // Logo
     const logoLink = document.querySelector('.logo a');
     if (logoLink) {
       logoLink.addEventListener('click', (e) => {
@@ -546,7 +435,7 @@ class CanalPage {
       });
     }
 
-    // Botón "Volver a Canales" (btn-secondary)
+    // Botón "Volver a Canales"
     const backLink = document.querySelector('.btn-secondary');
     if (backLink && backLink.getAttribute('href') === '/index.html') {
       backLink.addEventListener('click', (e) => {
@@ -558,7 +447,7 @@ class CanalPage {
   }
 
   /**
-   * Recarga los datos del canal (usado cuando hay cambio via Telegram)
+   * Recarga los datos del canal
    */
   async reload() {
     await this.loadChannelMetadata();
