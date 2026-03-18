@@ -222,17 +222,14 @@
   font-weight: 600;
   border: 1px solid rgba(255,255,255,0.1);
   transition: all 0.2s;
+  cursor: pointer;
+  display: inline-block;
 }
 
 .player-offline .btn-back:hover {
   background: var(--primary-dark, #1b5e20);
   transform: translateY(-2px);
-
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border: none;
-  object-fit: contain;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 /* Ocultar línea de tiempo para simular experiencia TV en vivo */
