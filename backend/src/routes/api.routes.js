@@ -184,7 +184,8 @@ router.get('/m3u8-direct', async (req, res) => {
       'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
     });
 
-    const proxyUrl = `${req.protocol}://${req.get('host')}/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`;
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const proxyUrl = `${protocol}://${req.get('host')}/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`;
 
     res.json({
       success: true,
@@ -212,9 +213,12 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
+    const protocol = req.get('x-forwarded-proto') || req.protocol;
+    const host = req.get('host');
+    
     const modifiedContent = content.replace(
       /(https?:\/\/[^\s]+\.ts[^\s]*)/g,
-      (match) => `/api/segment-proxy?url=${encodeURIComponent(match)}`
+      (match) => `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(match)}`
     );
     
     res.set({
