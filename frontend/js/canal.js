@@ -201,12 +201,11 @@ class CanalPage {
     `;
     adCounter.innerHTML = '🛡️ Anuncios bloqueados: <span id="video-ad-count" style="font-weight: 700;">0</span>';
 
-    // Crear iframe con sandbox para bloquear popups
+    // Crear iframe
     this.iframe = document.createElement('iframe');
     this.iframe.src = streamUrl;
     this.iframe.setAttribute('allowfullscreen', 'true');
     this.iframe.setAttribute('scrolling', 'no');
-    this.iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     this.iframe.className = 'stream-iframe';
     this.iframe.style.cssText = `
       width: 100%;
