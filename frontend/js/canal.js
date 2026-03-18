@@ -201,6 +201,13 @@ class CanalPage {
     `;
     adCounter.innerHTML = '🛡️ Anuncios bloqueados: <span id="video-ad-count" style="font-weight: 700;">0</span>';
 
+    // Inicializar estado del contador
+    this.adBlockerState = {
+      blockedCount: 0,
+      counterElement: adCounter,
+      counterSpan: adCounter.querySelector('#video-ad-count')
+    };
+
     // Crear iframe
     this.iframe = document.createElement('iframe');
     this.iframe.src = streamUrl;
@@ -212,6 +219,11 @@ class CanalPage {
       height: 100%;
       border: none;
     `;
+
+    // Configurar bloqueo de anuncios cuando el iframe cargue
+    this.iframe.addEventListener('load', () => {
+      this._blockAdOverlays();
+    });
 
     // Crear controles personalizados
     const controls = document.createElement('div');
@@ -237,6 +249,176 @@ class CanalPage {
     container.appendChild(mask);
 
     console.log('[CANAL] Iframe inyectado en DOM');
+  }
+
+  /**
+   * Bloquea los overlays de anuncios del iframe
+   */
+  _blockAdOverlays() {
+    try {
+      const iframeDoc = this.iframe.contentDocument || this.iframe.contentWindow?.document;
+      
+      if (!iframeDoc) {
+        console.warn('[AdBlocker] No se puede acceder al iframe (cross-origin)');
+        return;
+      }
+
+      console.log('[AdBlocker] Acceso al iframe obtenido, bloqueando anuncios...');
+
+      // 1. Inyectar CSS para ocultar overlays de anuncios
+      const style = iframeDoc.createElement('style');
+      style.textContent = `
+        /* Bloquear overlay de anuncios por ID */
+        #dontfoid,
+        [znid],
+        /* Bloquear por atributos de estilo comunes en overlays */
+        div[style*="z-index: 2147483647"],
+        div[style*="position: fixed"][style*="width"][style*="height"],
+        /* Bloquear iframes de anuncios */
+        iframe[src*="ads"],
+        iframe[src*="ad"],
+        iframe[width="0"][height="0"],
+        /* Bloquear links ocultos de anuncios */
+        a[style*="display: none"],
+        a[style*="visibility: hidden"],
+        a[style*="position: absolute"][style*="left: -1000px"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          width: 0 !important;
+          height: 0 !important;
+        }
+      `;
+      iframeDoc.head.appendChild(style);
+      this._incrementAdCounter();
+      console.log('✅ CSS anti-anuncios inyectado');
+
+      // 2. Eliminar elementos de anuncios existentes
+      this._removeAdElements(iframeDoc);
+
+      // 3. Observar y bloquear nuevos overlays que se creen dinámicamente
+      this._observeAdElements(iframeDoc);
+
+      // 4. Bloquear la función de popups
+      this._blockPopupFunctions(iframeDoc);
+
+    } catch (e) {
+      console.warn('[AdBlocker] Error bloqueando anuncios:', e.message);
+    }
+  }
+
+  /**
+   * Elimina elementos de anuncios existentes
+   */
+  _removeAdElements(iframeDoc) {
+    const adSelectors = [
+      '#dontfoid',
+      '[znid]',
+      'iframe[width="0"][height="0"]',
+      'a[href*="fpqguhajcermv"]',
+      'a[href*="ad/visit"]'
+    ];
+
+    adSelectors.forEach(selector => {
+      try {
+        const elements = iframeDoc.querySelectorAll(selector);
+        elements.forEach(el => {
+          console.log(`🚫 Eliminado: ${el.tagName}#${el.id || el.className}`);
+          el.remove();
+          this._incrementAdCounter();
+        });
+      } catch (e) {
+        // Ignorar errores de selector
+      }
+    });
+  }
+
+  /**
+   * Observa y bloquea nuevos elementos de anuncios
+   */
+  _observeAdElements(iframeDoc) {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) {
+            const id = node.id?.toLowerCase() || '';
+            const znid = node.getAttribute?.('znid');
+            const style = node.getAttribute?.('style') || '';
+            
+            // Detectar overlay de anuncio
+            if (id === 'dontfoid' || 
+                znid || 
+                (style.includes('z-index: 2147483647') && style.includes('position: fixed'))) {
+              console.log(`🚫 Bloqueado overlay: ${node.tagName}#${id}`);
+              node.remove();
+              this._incrementAdCounter();
+            }
+          }
+        });
+      });
+    });
+
+    observer.observe(iframeDoc.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'id', 'znid']
+    });
+
+    console.log('✅ Observer de anuncios activado');
+  }
+
+  /**
+   * Bloquea funciones de popups
+   */
+  _blockPopupFunctions(iframeDoc) {
+    try {
+      const iframeWindow = iframeDoc.defaultView || iframeDoc.parentWindow;
+      
+      // Bloquear aclib (librería de anuncios)
+      if (iframeWindow.aclib) {
+        iframeWindow.aclib = {
+          runPop: () => {
+            console.log('🚫 Bloqueado aclib.runPop()');
+            this._incrementAdCounter();
+          }
+        };
+      }
+
+      // Bloquear window.open
+      const originalOpen = iframeWindow.open;
+      iframeWindow.open = (...args) => {
+        console.log('🚫 Bloqueado popup:', args[0]);
+        this._incrementAdCounter();
+        return null;
+      };
+
+      console.log('✅ Funciones de popup bloqueadas');
+    } catch (e) {
+      console.warn('[AdBlocker] No se pudieron bloquear funciones:', e.message);
+    }
+  }
+
+  /**
+   * Incrementa el contador de anuncios bloqueados
+   */
+  _incrementAdCounter() {
+    if (this.adBlockerState) {
+      this.adBlockerState.blockedCount++;
+      
+      if (this.adBlockerState.counterSpan) {
+        this.adBlockerState.counterSpan.textContent = this.adBlockerState.blockedCount;
+        
+        // Efecto visual
+        if (this.adBlockerState.counterElement) {
+          this.adBlockerState.counterElement.style.background = 'rgba(255, 107, 107, 0.9)';
+          setTimeout(() => {
+            this.adBlockerState.counterElement.style.background = 'rgba(46, 125, 50, 0.9)';
+          }, 300);
+        }
+      }
+    }
   }
 
   _showOfflineMessage() {
