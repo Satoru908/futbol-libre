@@ -207,6 +207,20 @@ router.get('/m3u8-direct', async (req, res) => {
   }
 });
 
+// Sistema de rotación de proxies para evitar rate limits
+let proxyIndex = 0;
+const corsProxies = [
+  'https://api.allorigins.win/raw?url=',  // Opción 1 (más confiable)
+  'https://corsproxy.io/?',  // Opción 2
+  // 'https://cors-anywhere.herokuapp.com/',  // Opción 3 (requiere activación manual)
+];
+
+function getNextProxy() {
+  const proxy = corsProxies[proxyIndex];
+  proxyIndex = (proxyIndex + 1) % corsProxies.length;
+  return proxy;
+}
+
 router.get('/m3u8-proxy', async (req, res) => {
   try {
     const { url } = req.query;
@@ -217,28 +231,26 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    // MODO HÍBRIDO: Usar proxy alternativo para segmentos
+    // MODO HÍBRIDO: Usar proxy alternativo para segmentos con ROTACIÓN
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
     
-    // Opciones de proxies alternativos (probar en orden)
-    const corsProxies = [
-      'https://corsproxy.io/?',  // Opción 1
-      'https://api.allorigins.win/raw?url=',  // Opción 2
-      'https://cors-anywhere.herokuapp.com/',  // Opción 3 (requiere activación)
-    ];
-    
-    // Usar el primer proxy por ahora
-    const corsProxy = corsProxies[0];
-    
+    let segmentIndex = 0;
     const modifiedContent = content.replace(
       /^(?!#)(.+\.ts.*)$/gm,
       (match) => {
         // Convertir URLs relativas a absolutas
         const fullUrl = match.startsWith('http') ? match : baseUrl + match;
+        
+        // ROTAR proxy para cada segmento (distribuir carga)
+        const proxy = corsProxies[segmentIndex % corsProxies.length];
+        segmentIndex++;
+        
         // Proxear a través del proxy CORS
-        return `${corsProxy}${encodeURIComponent(fullUrl)}`;
+        return `${proxy}${encodeURIComponent(fullUrl)}`;
       }
     );
+    
+    logger.info(`M3U8 modificado con ${segmentIndex} segmentos distribuidos entre ${corsProxies.length} proxies`);
     
     res.set({
       'Content-Type': 'application/vnd.apple.mpegurl',
