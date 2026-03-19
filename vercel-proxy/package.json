@@ -1,0 +1,13 @@
+{
+  "name": "futbol-libre-proxy",
+  "version": "1.0.0",
+  "description": "Proxy CORS para streams HLS usando Vercel Edge Functions",
+  "main": "api/proxy.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["proxy", "cors", "hls", "vercel", "edge"],
+  "author": "",
+  "license": "MIT"
+}

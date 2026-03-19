@@ -6,6 +6,7 @@ const axios = require('axios');
 const logger = require('../utils/logger');
 const env = require('../config/env');
 const m3u8ProxyService = require('../services/m3u8-proxy.service');
+const { CORS_PROXIES } = require('../config/proxy.config');
 
 // Cache para datos de agenda y canales
 let agendaCache = null;
@@ -208,16 +209,12 @@ router.get('/m3u8-direct', async (req, res) => {
 });
 
 // Sistema de rotación de proxies para evitar rate limits
+// Los proxies se configuran en config/proxy.config.js
 let proxyIndex = 0;
-const corsProxies = [
-  'https://api.allorigins.win/raw?url=',  // Opción 1 (más confiable)
-  'https://corsproxy.io/?',  // Opción 2
-  // 'https://cors-anywhere.herokuapp.com/',  // Opción 3 (requiere activación manual)
-];
 
 function getNextProxy() {
-  const proxy = corsProxies[proxyIndex];
-  proxyIndex = (proxyIndex + 1) % corsProxies.length;
+  const proxy = CORS_PROXIES[proxyIndex];
+  proxyIndex = (proxyIndex + 1) % CORS_PROXIES.length;
   return proxy;
 }
 
@@ -242,7 +239,7 @@ router.get('/m3u8-proxy', async (req, res) => {
         const fullUrl = match.startsWith('http') ? match : baseUrl + match;
         
         // ROTAR proxy para cada segmento (distribuir carga)
-        const proxy = corsProxies[segmentIndex % corsProxies.length];
+        const proxy = CORS_PROXIES[segmentIndex % CORS_PROXIES.length];
         segmentIndex++;
         
         // Proxear a través del proxy CORS
@@ -250,7 +247,7 @@ router.get('/m3u8-proxy', async (req, res) => {
       }
     );
     
-    logger.info(`M3U8 modificado con ${segmentIndex} segmentos distribuidos entre ${corsProxies.length} proxies`);
+    logger.info(`M3U8 modificado con ${segmentIndex} segmentos distribuidos entre ${CORS_PROXIES.length} proxies`);
     
     res.set({
       'Content-Type': 'application/vnd.apple.mpegurl',
