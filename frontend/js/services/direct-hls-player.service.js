@@ -9,20 +9,26 @@ export class DirectHLSPlayerService {
 
   async load(streamId) {
     try {
+      console.log('[DirectHLS] Iniciando carga del stream:', streamId);
       await this._ensureHlsLoaded();
 
-      const response = await fetch(`${APP_CONFIG.apiBaseUrl}/api/m3u8-direct?stream=${encodeURIComponent(streamId)}`);
+      const apiUrl = `${APP_CONFIG.apiBaseUrl}/api/m3u8-direct?stream=${encodeURIComponent(streamId)}`;
+      console.log('[DirectHLS] Solicitando M3U8 desde:', apiUrl);
+      
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
-        throw new Error(`Error API: ${response.status}`);
+        throw new Error(`Error API: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('[DirectHLS] Respuesta del API:', data);
       
       if (!data.m3u8Url) {
         throw new Error('No se obtuvo URL M3U8');
       }
 
+      console.log('[DirectHLS] URL del M3U8:', data.m3u8Url);
       this._createVideoPlayer(data.m3u8Url);
 
     } catch (error) {
@@ -33,41 +39,66 @@ export class DirectHLSPlayerService {
 
   async _ensureHlsLoaded() {
     if (window.Hls) {
+      console.log('[DirectHLS] HLS.js ya está cargado, versión:', Hls.version);
       return;
     }
 
+    console.log('[DirectHLS] Cargando HLS.js...');
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js';
-      script.onload = () => resolve();
+      script.onload = () => {
+        console.log('[DirectHLS] HLS.js cargado exitosamente');
+        resolve();
+      };
       script.onerror = () => reject(new Error('No se pudo cargar HLS.js'));
       document.head.appendChild(script);
     });
   }
 
   _createVideoPlayer(m3u8Url) {
+    console.log('[DirectHLS] Creando reproductor de video...');
+    
     this.video = document.createElement('video');
     this.video.controls = true;
     this.video.autoplay = true;
     this.video.style.cssText = 'width: 100%; height: 100%; background: #000;';
 
     if (window.Hls && Hls.isSupported()) {
+      console.log('[DirectHLS] HLS.js es soportado, inicializando...');
+      
       this.hls = new Hls({
         enableWorker: false,
         lowLatencyMode: true,
-        backBufferLength: 90
+        backBufferLength: 90,
+        debug: false, // Cambiar a true para debugging
+        maxBufferLength: 30,
+        maxMaxBufferLength: 600
       });
 
       this.hls.loadSource(m3u8Url);
       this.hls.attachMedia(this.video);
 
       this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('[DirectHLS] ✅ Manifest cargado');
-        this.video.play().catch(e => console.warn('Autoplay bloqueado:', e));
+        console.log('[DirectHLS] ✅ Manifest cargado y parseado correctamente');
+        this.video.play().catch(e => console.warn('[DirectHLS] Autoplay bloqueado:', e));
+      });
+
+      this.hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+        console.log('[DirectHLS] Level cargado:', data.details);
+      });
+
+      this.hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+        console.log('[DirectHLS] Cargando fragmento:', data.frag.url);
+      });
+
+      this.hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+        console.log('[DirectHLS] ✅ Fragmento cargado:', data.frag.url);
       });
 
       this.hls.on(Hls.Events.ERROR, (event, data) => {
-        console.error('[DirectHLS] Error:', data.type, data.details);
+        console.error('[DirectHLS] Error:', data.type, data.details, data);
+        
         if (data.fatal) {
           switch (data.type) {
             case Hls.ErrorTypes.NETWORK_ERROR:
@@ -87,11 +118,15 @@ export class DirectHLSPlayerService {
       });
 
     } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
+      console.log('[DirectHLS] Usando soporte nativo de HLS');
       this.video.src = m3u8Url;
-      this.video.play().catch(e => console.warn('Autoplay bloqueado:', e));
+      this.video.play().catch(e => console.warn('[DirectHLS] Autoplay bloqueado:', e));
+    } else {
+      console.error('[DirectHLS] HLS no es soportado en este navegador');
     }
 
     this.container.appendChild(this.video);
+    console.log('[DirectHLS] Video agregado al DOM');
   }
 
   destroy() {
