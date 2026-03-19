@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test HLS Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+        #video-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            background: #000;
+        }
+        #logs {
+            margin-top: 20px;
+            padding: 10px;
+            background: #222;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #4caf50;
+        }
+        .log-error {
+            border-left-color: #f44336;
+        }
+        .log-warning {
+            border-left-color: #ff9800;
+        }
+        #controls {
+            margin: 20px 0;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 0 5px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        input {
+            padding: 10px;
+            width: 300px;
+            margin: 0 5px;
+            border: 1px solid #555;
+            background: #333;
+            color: white;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="video-container">
+        <h1>Test HLS Player</h1>
+        <video id="video" controls></video>
+        
+        <div id="controls">
+            <input type="text" id="streamInput" placeholder="Stream ID (ej: espn)" value="espn">
+            <button onclick="loadStream()">Cargar Stream</button>
+            <button onclick="clearLogs()">Limpiar Logs</button>
+        </div>
+        
+        <div id="logs"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const logsContainer = document.getElementById('logs');
+        let hls = null;
+
+        function addLog(message, type = 'info') {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type === 'error' ? 'log-error' : type === 'warning' ? 'log-warning' : ''}`;
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLogs() {
+            logsContainer.innerHTML = '';
+        }
+
+        async function loadStream() {
+            const streamId = document.getElementById('streamInput').value;
+            
+            if (!streamId) {
+                addLog('Por favor ingresa un Stream ID', 'error');
+                return;
+            }
+
+            addLog(`Iniciando carga del stream: ${streamId}`);
+
+            try {
+                // Verificar HLS.js
+                if (!window.Hls) {
+                    addLog('HLS.js no está cargado', 'error');
+                    return;
+                }
+                addLog(`HLS.js cargado, versión: ${Hls.version}`);
+
+                // Obtener URL del M3U8
+                const apiUrl = `/api/m3u8-direct?stream=${encodeURIComponent(streamId)}`;
+                addLog(`Solicitando M3U8 desde: ${apiUrl}`);
+                
+                const response = await fetch(apiUrl);
+                addLog(`Respuesta del API: ${response.status} ${response.statusText}`);
+                
+                if (!response.ok) {
+                    throw new Error(`Error API: ${response.status} ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                addLog(`Datos recibidos: ${JSON.stringify(data)}`);
+                
+                if (!data.m3u8Url) {
+                    throw new Error('No se obtuvo URL M3U8');
+                }
+
+                addLog(`URL del M3U8: ${data.m3u8Url}`);
+
+                // Destruir instancia anterior si existe
+                if (hls) {
+                    addLog('Destruyendo instancia anterior de HLS');
+                    hls.destroy();
+                }
+
+                // Verificar soporte de HLS
+                if (Hls.isSupported()) {
+                    addLog('HLS.js es soportado, inicializando...');
+                    
+                    hls = new Hls({
+                        enableWorker: false,
+                        lowLatencyMode: true,
+                        backBufferLength: 90,
+                        debug: false
+                    });
+
+                    hls.loadSource(data.m3u8Url);
+                    hls.attachMedia(video);
+
+                    hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+                        addLog('✅ Manifest cargado y parseado correctamente');
+                        addLog(`Levels disponibles: ${data.levels.length}`);
+                        video.play().catch(e => addLog(`Autoplay bloqueado: ${e.message}`, 'warning'));
+                    });
+
+                    hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+                        addLog(`Level cargado: ${data.details.totalduration}s, ${data.details.fragments.length} fragmentos`);
+                    });
+
+                    hls.on(Hls.Events.FRAG_LOADING, (event, data) => {
+                        addLog(`Cargando fragmento: ${data.frag.relurl}`);
+                    });
+
+                    hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
+                        addLog(`✅ Fragmento cargado: ${data.frag.relurl} (${(data.frag.stats.total / 1024).toFixed(2)} KB)`);
+                    });
+
+                    hls.on(Hls.Events.ERROR, (event, data) => {
+                        const errorMsg = `Error: ${data.type} - ${data.details}`;
+                        addLog(errorMsg, data.fatal ? 'error' : 'warning');
+                        
+                        if (data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    addLog('Error de red fatal, intentando recuperar...', 'warning');
+                                    hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    addLog('Error de media fatal, intentando recuperar...', 'warning');
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    addLog('Error fatal irrecuperable', 'error');
+                                    hls.destroy();
+                                    break;
+                            }
+                        }
+                    });
+
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    addLog('Usando soporte nativo de HLS');
+                    video.src = data.m3u8Url;
+                    video.play().catch(e => addLog(`Autoplay bloqueado: ${e.message}`, 'warning'));
+                } else {
+                    addLog('HLS no es soportado en este navegador', 'error');
+                }
+
+            } catch (error) {
+                addLog(`Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // Cargar automáticamente al inicio
+        window.addEventListener('DOMContentLoaded', () => {
+            addLog('Página cargada, listo para probar');
+            addLog('Haz click en "Cargar Stream" para comenzar');
+        });
+    </script>
+</body>
+</html>
