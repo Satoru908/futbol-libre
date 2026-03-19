@@ -217,14 +217,26 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    // MODO LIGERO: No proxear segmentos, dejar URLs originales
+    // MODO HÍBRIDO: Usar CORS proxy externo para segmentos
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+    
+    // Lista de CORS proxies (intentar en orden)
+    const corsProxies = [
+      'https://corsproxy.io/?',
+      'https://api.allorigins.win/raw?url=',
+      'https://cors-anywhere.herokuapp.com/'
+    ];
+    
+    // Usar el primer proxy de la lista
+    const corsProxy = corsProxies[0];
     
     const modifiedContent = content.replace(
       /^(?!#)(.+\.ts.*)$/gm,
       (match) => {
-        // Convertir URLs relativas a absolutas, pero NO proxear
-        return match.startsWith('http') ? match : baseUrl + match;
+        // Convertir URLs relativas a absolutas
+        const fullUrl = match.startsWith('http') ? match : baseUrl + match;
+        // Proxear a través del CORS proxy externo
+        return `${corsProxy}${encodeURIComponent(fullUrl)}`;
       }
     );
     
