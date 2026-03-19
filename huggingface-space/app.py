@@ -160,10 +160,25 @@ def validate_segment(data: bytes, content_type: str) -> bool:
         logger.error(f"[VALIDATION] Invalid Content-Type: {content_type}")
         return False
     
-    # Verificar que empiece con sync byte de MPEG-TS (0x47)
+    # CRÍTICO: Verificar que empiece con sync byte de MPEG-TS (0x47)
+    # Si no tiene el sync byte, el fragmento está corrupto y HLS.js no podrá parsearlo
     if data[0] != 0x47:
-        logger.warning(f"[VALIDATION] No MPEG-TS sync byte, but continuing...")
+        logger.error(f"[VALIDATION] Missing MPEG-TS sync byte (0x47), found: 0x{data[0]:02x}")
+        return False
     
+    # Verificar múltiples sync bytes (cada 188 bytes en MPEG-TS)
+    # Esto asegura que el fragmento tiene estructura válida
+    packet_size = 188
+    sync_count = 0
+    for i in range(0, min(len(data), packet_size * 10), packet_size):
+        if i < len(data) and data[i] == 0x47:
+            sync_count += 1
+    
+    if sync_count < 3:
+        logger.error(f"[VALIDATION] Not enough MPEG-TS sync bytes found: {sync_count}")
+        return False
+    
+    logger.info(f"[VALIDATION] Valid MPEG-TS segment: {len(data)} bytes, {sync_count} sync bytes")
     return True
 
 
@@ -181,12 +196,19 @@ def download_segment(url: str, max_retries: int = 3) -> tuple[bytes, str]:
             logger.info(f"[DOWNLOAD] Attempt {attempt + 1}/{max_retries}: {url[:80]}...")
             
             # Descargar con timeout de 120 segundos
+            # IMPORTANTE: stream=True para evitar problemas con fragmentos grandes
             response = requests.get(
                 url,
                 headers=FUBOHD_HEADERS,
                 timeout=120,
-                stream=False
+                stream=True
             )
+            
+            # Leer todo el contenido de una vez para asegurar que esté completo
+            data = b''
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    data += chunk
             
             # Verificar status code
             if response.status_code != 200:
@@ -199,8 +221,19 @@ def download_segment(url: str, max_retries: int = 3) -> tuple[bytes, str]:
                     detail=f"Error downloading from fubohd.com: {response.status_code}"
                 )
             
-            data = response.content
             content_type = response.headers.get('content-type', 'video/mp2t')
+            content_length = response.headers.get('content-length')
+            
+            # Verificar que el tamaño descargado coincida con Content-Length
+            if content_length and len(data) != int(content_length):
+                logger.error(f"[DOWNLOAD] Size mismatch: expected {content_length}, got {len(data)}")
+                if attempt < max_retries - 1:
+                    time.sleep(1)
+                    continue
+                raise HTTPException(
+                    status_code=500,
+                    detail="Downloaded segment size mismatch"
+                )
             
             # Validar segmento
             if not validate_segment(data, content_type):

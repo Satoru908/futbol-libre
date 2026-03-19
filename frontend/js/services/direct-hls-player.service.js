@@ -71,9 +71,19 @@ export class DirectHLSPlayerService {
         enableWorker: false,
         lowLatencyMode: true,
         backBufferLength: 90,
-        debug: false, // Cambiar a true para debugging
+        debug: true, // Activar debug para ver más información
         maxBufferLength: 30,
-        maxMaxBufferLength: 600
+        maxMaxBufferLength: 600,
+        // Configuración adicional para mejorar la recuperación de errores
+        manifestLoadingTimeOut: 10000,
+        manifestLoadingMaxRetry: 4,
+        manifestLoadingRetryDelay: 1000,
+        levelLoadingTimeOut: 10000,
+        levelLoadingMaxRetry: 4,
+        levelLoadingRetryDelay: 1000,
+        fragLoadingTimeOut: 20000,
+        fragLoadingMaxRetry: 6,
+        fragLoadingRetryDelay: 1000
       });
 
       this.hls.loadSource(m3u8Url);
@@ -93,11 +103,27 @@ export class DirectHLSPlayerService {
       });
 
       this.hls.on(Hls.Events.FRAG_LOADED, (event, data) => {
-        console.log('[DirectHLS] ✅ Fragmento cargado:', data.frag.url);
+        const size = data.frag.stats?.total || 0;
+        console.log(`[DirectHLS] ✅ Fragmento cargado: ${data.frag.url} (${size} bytes)`);
+        
+        // Validar que el fragmento tenga datos
+        if (size === 0) {
+          console.error('[DirectHLS] ⚠️ Fragmento vacío recibido');
+        }
       });
 
       this.hls.on(Hls.Events.ERROR, (event, data) => {
         console.error('[DirectHLS] Error:', data.type, data.details, data);
+        
+        // Log adicional para errores de parsing
+        if (data.details === 'fragParsingError') {
+          console.error('[DirectHLS] ❌ Error de parsing de fragmento:', {
+            url: data.frag?.url,
+            reason: data.reason,
+            error: data.error?.message,
+            bytes: data.frag?.stats?.total
+          });
+        }
         
         if (data.fatal) {
           switch (data.type) {

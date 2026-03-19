@@ -67,11 +67,30 @@ export default async function handler(req) {
       });
     }
 
-    // Obtener el contenido
+    // Obtener el contenido como ArrayBuffer para preservar datos binarios
     const contentType = response.headers.get('content-type') || 'video/mp2t';
+    const contentLength = response.headers.get('content-length');
     const body = await response.arrayBuffer();
 
-    console.log(`[Vercel CDN] Success: ${body.byteLength} bytes from Hugging Face`);
+    console.log(`[Vercel CDN] Success: ${body.byteLength} bytes from Hugging Face (expected: ${contentLength || 'unknown'})`);
+    
+    // Validar que el fragmento sea MPEG-TS válido
+    if (body.byteLength > 0) {
+      const firstByte = new Uint8Array(body)[0];
+      if (firstByte !== 0x47) {
+        console.error(`[Vercel CDN] Invalid MPEG-TS sync byte: 0x${firstByte.toString(16)}`);
+        return new Response(JSON.stringify({ 
+          error: 'Invalid video segment',
+          detail: 'Missing MPEG-TS sync byte'
+        }), {
+          status: 500,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+    }
 
     // Crear nueva respuesta con headers CORS y caché agresivo
     const newResponse = new Response(body, {
