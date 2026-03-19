@@ -54,10 +54,21 @@ export default async function handler(req) {
 
     if (!response.ok) {
       console.error(`[Vercel CDN] Hugging Face error: ${response.status}`);
+      
+      // Intentar leer el error de HF
+      let errorDetail = response.statusText;
+      try {
+        const errorText = await response.text();
+        if (errorText.length < 1000) {
+          errorDetail = errorText;
+        }
+      } catch (e) {}
+      
       return new Response(JSON.stringify({ 
         error: 'Upstream error from Hugging Face',
         status: response.status,
-        statusText: response.statusText
+        statusText: response.statusText,
+        detail: errorDetail
       }), {
         status: response.status,
         headers: { 
@@ -70,19 +81,39 @@ export default async function handler(req) {
     // Obtener el contenido como ArrayBuffer para preservar datos binarios
     const contentType = response.headers.get('content-type') || 'video/mp2t';
     const contentLength = response.headers.get('content-length');
+    
+    // CRÍTICO: Verificar Content-Type ANTES de descargar
+    if (contentType && (contentType.includes('text/html') || contentType.includes('application/json'))) {
+      console.error(`[Vercel CDN] Invalid Content-Type from HF: ${contentType}`);
+      const errorBody = await response.text();
+      return new Response(JSON.stringify({ 
+        error: 'Invalid video segment',
+        detail: `Hugging Face returned ${contentType} instead of video/mp2t. Segment may be unavailable or token expired.`,
+        contentType: contentType,
+        preview: errorBody.substring(0, 500)
+      }), {
+        status: 502,
+        headers: { 
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+    
     const body = await response.arrayBuffer();
 
-    console.log(`[Vercel CDN] Success: ${body.byteLength} bytes from Hugging Face (expected: ${contentLength || 'unknown'})`);
+    console.log(`[Vercel CDN] Success: ${body.byteLength} bytes from Hugging Face (expected: ${contentLength || 'unknown'}), Content-Type: ${contentType}`);
     
-    // CRÍTICO: Detectar si es HTML o JSON (error común cuando el token expira)
+    // CRÍTICO: Detectar si es HTML o JSON (doble verificación)
     if (body.byteLength > 0 && body.byteLength < 100000) {
       try {
         const text = new TextDecoder().decode(body.slice(0, 200));
         if (text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('<body')) {
-          console.error(`[Vercel CDN] Response is HTML, not video segment`);
+          console.error(`[Vercel CDN] Response is HTML despite Content-Type: ${contentType}`);
           return new Response(JSON.stringify({ 
             error: 'Invalid video segment',
             detail: 'Upstream returned HTML instead of video data. Token may have expired.',
+            contentType: contentType,
             preview: text.substring(0, 200)
           }), {
             status: 502,
@@ -93,10 +124,11 @@ export default async function handler(req) {
           });
         }
         if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
-          console.error(`[Vercel CDN] Response is JSON, not video segment`);
+          console.error(`[Vercel CDN] Response is JSON despite Content-Type: ${contentType}`);
           return new Response(JSON.stringify({ 
             error: 'Invalid video segment',
             detail: 'Upstream returned JSON instead of video data',
+            contentType: contentType,
             preview: text.substring(0, 200)
           }), {
             status: 502,
