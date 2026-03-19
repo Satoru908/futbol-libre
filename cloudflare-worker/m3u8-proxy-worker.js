@@ -10,9 +10,28 @@
 
 export default {
   async fetch(request, env, ctx) {
+    // Manejar preflight CORS (OPTIONS)
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+          'Access-Control-Max-Age': '86400'
+        }
+      });
+    }
+
     // Solo permitir GET
     if (request.method !== 'GET') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Content-Type': 'text/plain'
+        }
+      });
     }
 
     try {
@@ -25,19 +44,25 @@ export default {
           JSON.stringify({ error: 'Missing url parameter' }),
           { 
             status: 400,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
           }
         );
       }
 
-      // Validar que la URL es de fubohd.com
+      // Validar que la URL es de fubohd.com o newkso.ru
       const targetDomain = new URL(targetUrl).hostname;
       if (!targetDomain.includes('fubohd.com') && !targetDomain.includes('newkso.ru')) {
         return new Response(
-          JSON.stringify({ error: 'Invalid domain' }),
+          JSON.stringify({ error: 'Invalid domain', domain: targetDomain }),
           { 
             status: 403,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
           }
         );
       }
@@ -50,7 +75,6 @@ export default {
           'Referer': 'https://la14hd.com/',
           'Origin': 'https://la14hd.com',
           'Accept': '*/*',
-          'Accept-Encoding': 'gzip, deflate, br',
           'Accept-Language': 'en-US,en;q=0.9'
         },
         cf: {
@@ -60,28 +84,36 @@ export default {
         }
       });
 
-      // Si la petición falló, devolver el error
+      // Si la petición falló, devolver el error CON CORS
       if (!response.ok) {
         return new Response(
           JSON.stringify({ 
             error: 'Upstream error',
             status: response.status,
-            statusText: response.statusText
+            statusText: response.statusText,
+            url: targetUrl
           }),
           { 
             status: response.status,
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
           }
         );
       }
 
       // Crear nueva respuesta con headers CORS
-      const newResponse = new Response(response.body, response);
+      const newResponse = new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+      });
       
-      // Agregar headers CORS
+      // Agregar headers CORS (IMPORTANTE)
       newResponse.headers.set('Access-Control-Allow-Origin', '*');
       newResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
-      newResponse.headers.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+      newResponse.headers.set('Access-Control-Allow-Headers', '*');
       
       // Agregar cache headers
       newResponse.headers.set('Cache-Control', 'public, max-age=3600');
@@ -96,7 +128,10 @@ export default {
         }),
         { 
           status: 500,
-          headers: { 'Content-Type': 'application/json' }
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
         }
       );
     }
