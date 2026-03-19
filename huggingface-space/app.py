@@ -326,9 +326,11 @@ async def proxy_segment(url: str = Query(..., description="URL del segmento .ts 
     try:
         # Verificar que la URL sea válida
         if not url or not url.startswith('http'):
+            logger.error(f"[PROXY] Invalid URL: {url}")
             raise HTTPException(status_code=400, detail="Invalid URL parameter")
         
-        logger.info(f"[REQUEST] {url[:80]}...")
+        logger.info(f"[PROXY] ========== NEW REQUEST ==========")
+        logger.info(f"[PROXY] Requested URL: {url[:100]}...")
         
         # Intentar obtener del caché
         cached_data = get_from_cache(url)

@@ -42,7 +42,9 @@ export default async function handler(req) {
     // targetUrl = https://fubohd.com/espn/segment-001.ts
     const hfProxyUrl = `${HF_PROXY_URL}/proxy?url=${encodeURIComponent(targetUrl)}`;
     
-    console.log(`[Vercel CDN] Fetching from Hugging Face: ${hfProxyUrl.substring(0, 100)}...`);
+    console.log(`[Vercel CDN] HF_PROXY_URL: ${HF_PROXY_URL}`);
+    console.log(`[Vercel CDN] Target URL: ${targetUrl.substring(0, 100)}...`);
+    console.log(`[Vercel CDN] Full HF URL: ${hfProxyUrl.substring(0, 150)}...`);
 
     // Hacer la petición a Hugging Face
     const response = await fetch(hfProxyUrl, {
@@ -51,6 +53,8 @@ export default async function handler(req) {
       },
       redirect: 'follow'
     });
+    
+    console.log(`[Vercel CDN] HF Response: ${response.status} ${response.statusText}, Content-Type: ${response.headers.get('content-type')}`);
 
     if (!response.ok) {
       console.error(`[Vercel CDN] Hugging Face error: ${response.status}`);
