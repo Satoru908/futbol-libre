@@ -2,12 +2,10 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
 const logger = require('../utils/logger');
 const env = require('../config/env');
 const m3u8ProxyService = require('../services/m3u8-proxy.service');
 const { CORS_PROXIES } = require('../config/proxy.config');
-const segmentCache = require('../services/segment-cache.service');
 
 // Cache para datos de agenda y canales
 let agendaCache = null;
@@ -58,21 +56,12 @@ function loadDataFile(filename, cacheKey, cacheDurationMs = CACHE_DURATION) {
 
 // Health check
 router.get('/health', (req, res) => {
-  const cacheStats = segmentCache.getStats();
-  
   res.json({ 
     ok: true, 
     service: 'futbol-libre-api', 
     timestamp: Date.now(),
-    architecture: 'railway-proxy-with-cache',
-    environment: env.NODE_ENV,
-    cache: {
-      enabled: true,
-      size: cacheStats.size,
-      maxSize: cacheStats.maxSize,
-      memoryUsageMB: Math.round(cacheStats.memoryUsage),
-      ttlSeconds: cacheStats.ttl / 1000
-    }
+    architecture: 'Railway (M3U8) → Vercel (caché) → Hugging Face (descarga)',
+    environment: env.NODE_ENV
   });
 });
 
@@ -307,69 +296,6 @@ router.get('/m3u8-proxy', async (req, res) => {
     logger.error('Error en /m3u8-proxy:', error.message);
     res.status(500).json({ 
       error: 'Error obteniendo M3U8',
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Proxy de segmentos .ts con caché
- * Railway no está bloqueado por fubohd.com, así que usamos nuestro propio backend como proxy
- */
-router.get('/segment-proxy', async (req, res) => {
-  try {
-    const { url } = req.query;
-    
-    if (!url) {
-      return res.status(400).json({ error: 'Parámetro url requerido' });
-    }
-
-    // Verificar caché primero
-    const cached = segmentCache.get(url);
-    if (cached) {
-      res.set({
-        'Content-Type': 'video/mp2t',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-        'Cache-Control': 'public, max-age=60',
-        'X-Cache': 'HIT'
-      });
-      return res.send(cached);
-    }
-
-    // Si no está en caché, descargar desde fubohd.com
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://la14hd.com/',
-        'Origin': 'https://la14hd.com',
-        'Accept': '*/*'
-      },
-      responseType: 'arraybuffer',
-      timeout: 15000
-    });
-
-    const buffer = Buffer.from(response.data);
-    
-    // Guardar en caché
-    segmentCache.set(url, buffer);
-    
-    res.set({
-      'Content-Type': response.headers['content-type'] || 'video/mp2t',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-      'Cache-Control': 'public, max-age=60',
-      'X-Cache': 'MISS'
-    });
-
-    res.send(buffer);
-
-  } catch (error) {
-    logger.error('Error en /segment-proxy:', error.message);
-    res.status(500).json({ 
-      error: 'Error obteniendo segmento',
       message: error.message 
     });
   }
