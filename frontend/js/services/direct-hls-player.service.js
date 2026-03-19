@@ -53,7 +53,7 @@ export class DirectHLSPlayerService {
 
     if (window.Hls && Hls.isSupported()) {
       this.hls = new Hls({
-        enableWorker: true,
+        enableWorker: false,
         lowLatencyMode: true,
         backBufferLength: 90
       });

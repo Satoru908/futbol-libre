@@ -220,9 +220,14 @@ router.get('/m3u8-proxy', async (req, res) => {
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const host = req.get('host');
     
+    const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+    
     const modifiedContent = content.replace(
-      /(https?:\/\/[^\s]+\.ts[^\s]*)/g,
-      (match) => `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(match)}`
+      /^(?!#)(.+\.ts.*)$/gm,
+      (match) => {
+        const fullUrl = match.startsWith('http') ? match : baseUrl + match;
+        return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
+      }
     );
     
     res.set({
