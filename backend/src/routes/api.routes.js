@@ -217,16 +217,14 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-    const host = req.get('host');
-    
+    // MODO LIGERO: No proxear segmentos, dejar URLs originales
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
     
     const modifiedContent = content.replace(
       /^(?!#)(.+\.ts.*)$/gm,
       (match) => {
-        const fullUrl = match.startsWith('http') ? match : baseUrl + match;
-        return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
+        // Convertir URLs relativas a absolutas, pero NO proxear
+        return match.startsWith('http') ? match : baseUrl + match;
       }
     );
     
@@ -249,6 +247,9 @@ router.get('/m3u8-proxy', async (req, res) => {
   }
 });
 
+// NOTA: Esta ruta está desactivada en modo "proxy ligero"
+// Solo se proxea el M3U8, los segmentos se cargan directamente desde el origen
+/*
 router.get('/segment-proxy', async (req, res) => {
   try {
     const { url } = req.query;
@@ -285,5 +286,6 @@ router.get('/segment-proxy', async (req, res) => {
     });
   }
 });
+*/
 
 module.exports = router;
