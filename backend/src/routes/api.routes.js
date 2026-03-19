@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const env = require('../config/env');
 const m3u8ProxyService = require('../services/m3u8-proxy.service');
 const { CORS_PROXIES } = require('../config/proxy.config');
+const segmentCache = require('../services/segment-cache.service');
 
 // Cache para datos de agenda y canales
 let agendaCache = null;
@@ -57,12 +58,21 @@ function loadDataFile(filename, cacheKey, cacheDurationMs = CACHE_DURATION) {
 
 // Health check
 router.get('/health', (req, res) => {
+  const cacheStats = segmentCache.getStats();
+  
   res.json({ 
     ok: true, 
     service: 'futbol-libre-api', 
     timestamp: Date.now(),
-    architecture: 'direct-proxy-simple',
-    environment: env.NODE_ENV
+    architecture: 'railway-proxy-with-cache',
+    environment: env.NODE_ENV,
+    cache: {
+      enabled: true,
+      size: cacheStats.size,
+      maxSize: cacheStats.maxSize,
+      memoryUsageMB: Math.round(cacheStats.memoryUsage),
+      ttlSeconds: cacheStats.ttl / 1000
+    }
   });
 });
 
@@ -228,8 +238,15 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    // USAR RAILWAY COMO PROXY: Los segmentos pasan por nuestro backend
+    // ARQUITECTURA HÍBRIDA: Railway → Vercel CDN → Usuarios
+    // Los segmentos pasan por Vercel que actúa como CDN
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+    
+    // URL de Vercel CDN (configurable via variable de entorno)
+    const vercelCdnUrl = process.env.VERCEL_PROXY_URL 
+      ? `${process.env.VERCEL_PROXY_URL}/api/proxy`
+      : null;
+    
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const host = req.get('host');
     
@@ -240,12 +257,18 @@ router.get('/m3u8-proxy', async (req, res) => {
         // Convertir URLs relativas a absolutas
         const fullUrl = match.startsWith('http') ? match : baseUrl + match;
         
-        // Proxear a través de nuestro propio backend (Railway no está bloqueado)
-        return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
+        // Si hay Vercel CDN configurado, usarlo (redistribuye a miles)
+        // Si no, usar Railway directamente (para pocos usuarios)
+        if (vercelCdnUrl) {
+          return `${vercelCdnUrl}?url=${encodeURIComponent(fullUrl)}`;
+        } else {
+          return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
+        }
       }
     );
     
-    logger.info(`M3U8 modificado con ${segmentIndex} segmentos proxeados por Railway`);
+    const architecture = vercelCdnUrl ? 'Railway → Vercel CDN → Users' : 'Railway → Users';
+    logger.info(`M3U8 modificado con ${segmentIndex} segmentos (${architecture})`);
     
     res.set({
       'Content-Type': 'application/vnd.apple.mpegurl',
@@ -267,7 +290,7 @@ router.get('/m3u8-proxy', async (req, res) => {
 });
 
 /**
- * Proxy de segmentos .ts
+ * Proxy de segmentos .ts con caché
  * Railway no está bloqueado por fubohd.com, así que usamos nuestro propio backend como proxy
  */
 router.get('/segment-proxy', async (req, res) => {
@@ -278,6 +301,21 @@ router.get('/segment-proxy', async (req, res) => {
       return res.status(400).json({ error: 'Parámetro url requerido' });
     }
 
+    // Verificar caché primero
+    const cached = segmentCache.get(url);
+    if (cached) {
+      res.set({
+        'Content-Type': 'video/mp2t',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
+        'Cache-Control': 'public, max-age=60',
+        'X-Cache': 'HIT'
+      });
+      return res.send(cached);
+    }
+
+    // Si no está en caché, descargar desde fubohd.com
     const response = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -288,16 +326,22 @@ router.get('/segment-proxy', async (req, res) => {
       responseType: 'arraybuffer',
       timeout: 15000
     });
+
+    const buffer = Buffer.from(response.data);
+    
+    // Guardar en caché
+    segmentCache.set(url, buffer);
     
     res.set({
       'Content-Type': response.headers['content-type'] || 'video/mp2t',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-      'Cache-Control': 'public, max-age=3600'
+      'Cache-Control': 'public, max-age=60',
+      'X-Cache': 'MISS'
     });
 
-    res.send(Buffer.from(response.data));
+    res.send(buffer);
 
   } catch (error) {
     logger.error('Error en /segment-proxy:', error.message);

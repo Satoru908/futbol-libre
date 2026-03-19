@@ -1,6 +1,9 @@
 {
   "version": 2,
   "name": "futbol-libre-proxy",
+  "env": {
+    "RAILWAY_BACKEND_URL": "https://futbol-libre-production-5102.up.railway.app"
+  },
   "builds": [
     {
       "src": "api/proxy.js",
@@ -28,6 +31,10 @@
         {
           "key": "Access-Control-Allow-Headers",
           "value": "Origin, X-Requested-With, Content-Type, Accept"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=60, s-maxage=60"
         }
       ]
     }

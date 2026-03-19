@@ -1,13 +1,18 @@
 /**
- * Vercel Edge Function - Proxy CORS para streams HLS
+ * Vercel Edge Function - Proxy CORS que redistribuye desde Railway
  * 
- * Este proxy permite acceder a segmentos .ts de fubohd.com
- * sin problemas de CORS y sin límites de rate.
+ * Este proxy actúa como CDN:
+ * - Railway descarga de fubohd.com (1 conexión)
+ * - Vercel redistribuye a miles de usuarios (100 GB/mes gratis)
+ * - Cachea segmentos globalmente
  */
 
 export const config = {
   runtime: 'edge',
 };
+
+// URL de tu backend en Railway
+const RAILWAY_BACKEND = process.env.RAILWAY_BACKEND_URL || 'https://futbol-libre-production-5102.up.railway.app';
 
 export default async function handler(req) {
   // Solo permitir GET
@@ -32,36 +37,23 @@ export default async function handler(req) {
       });
     }
 
-    // Validar que sea una URL válida
-    let url;
-    try {
-      url = new URL(targetUrl);
-    } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid URL' }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
+    // En lugar de ir directo a fubohd.com, ir a Railway
+    // Railway ya tiene los headers correctos y no está bloqueado
+    const railwayProxyUrl = `${RAILWAY_BACKEND}/api/segment-proxy?url=${encodeURIComponent(targetUrl)}`;
+    
+    console.log(`[Vercel CDN] Fetching from Railway: ${railwayProxyUrl}`);
 
-    // Hacer la petición al servidor de origen con headers necesarios
-    const response = await fetch(targetUrl, {
+    // Hacer la petición a Railway
+    const response = await fetch(railwayProxyUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://la14hd.com/',
-        'Origin': 'https://la14hd.com',
         'Accept': '*/*',
-        'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
-        'Accept-Encoding': 'identity',
       },
-      // No seguir redirects automáticamente
+      // Importante: seguir redirects
       redirect: 'follow'
     });
 
     if (!response.ok) {
-      console.error(`Error fetching ${targetUrl}: ${response.status}`);
+      console.error(`[Vercel CDN] Railway error: ${response.status}`);
       return new Response(JSON.stringify({ 
         error: 'Upstream error',
         status: response.status,
@@ -79,7 +71,7 @@ export default async function handler(req) {
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
     const body = await response.arrayBuffer();
 
-    // Crear nueva respuesta con headers CORS
+    // Crear nueva respuesta con headers CORS y caché agresivo
     const newResponse = new Response(body, {
       status: 200,
       headers: {
@@ -87,15 +79,17 @@ export default async function handler(req) {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-        'Cache-Control': 'public, max-age=3600',
-        'X-Proxy-By': 'Vercel Edge Function'
+        // Caché agresivo en Vercel Edge (60 segundos)
+        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+        'X-Proxy-By': 'Vercel Edge CDN',
+        'X-Upstream': 'Railway'
       }
     });
 
     return newResponse;
 
   } catch (error) {
-    console.error('Proxy error:', error);
+    console.error('[Vercel CDN] Error:', error);
     return new Response(JSON.stringify({ 
       error: 'Internal server error',
       message: error.message 
