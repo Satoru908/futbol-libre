@@ -228,8 +228,10 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    // MODO HÍBRIDO: Usar proxy alternativo para segmentos con ROTACIÓN
+    // USAR RAILWAY COMO PROXY: Los segmentos pasan por nuestro backend
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
+    const host = req.get('host');
     
     let segmentIndex = 0;
     const modifiedContent = content.replace(
@@ -238,16 +240,12 @@ router.get('/m3u8-proxy', async (req, res) => {
         // Convertir URLs relativas a absolutas
         const fullUrl = match.startsWith('http') ? match : baseUrl + match;
         
-        // ROTAR proxy para cada segmento (distribuir carga)
-        const proxy = CORS_PROXIES[segmentIndex % CORS_PROXIES.length];
-        segmentIndex++;
-        
-        // Proxear a través del proxy CORS
-        return `${proxy}${encodeURIComponent(fullUrl)}`;
+        // Proxear a través de nuestro propio backend (Railway no está bloqueado)
+        return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
       }
     );
     
-    logger.info(`M3U8 modificado con ${segmentIndex} segmentos distribuidos entre ${CORS_PROXIES.length} proxies`);
+    logger.info(`M3U8 modificado con ${segmentIndex} segmentos proxeados por Railway`);
     
     res.set({
       'Content-Type': 'application/vnd.apple.mpegurl',
@@ -268,9 +266,10 @@ router.get('/m3u8-proxy', async (req, res) => {
   }
 });
 
-// NOTA: Esta ruta está desactivada en modo "proxy ligero"
-// Solo se proxea el M3U8, los segmentos se cargan a través de proxy CORS externo
-/*
+/**
+ * Proxy de segmentos .ts
+ * Railway no está bloqueado por fubohd.com, así que usamos nuestro propio backend como proxy
+ */
 router.get('/segment-proxy', async (req, res) => {
   try {
     const { url } = req.query;
@@ -283,7 +282,8 @@ router.get('/segment-proxy', async (req, res) => {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://la14hd.com/',
-        'Origin': 'https://la14hd.com'
+        'Origin': 'https://la14hd.com',
+        'Accept': '*/*'
       },
       responseType: 'arraybuffer',
       timeout: 15000
@@ -307,6 +307,5 @@ router.get('/segment-proxy', async (req, res) => {
     });
   }
 });
-*/
 
 module.exports = router;
