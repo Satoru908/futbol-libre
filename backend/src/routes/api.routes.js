@@ -217,19 +217,26 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    // MODO HÍBRIDO: Usar Cloudflare Worker para segmentos
+    // MODO HÍBRIDO: Usar proxy alternativo para segmentos
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
     
-    // URL de tu Cloudflare Worker
-    const cloudflareWorker = 'https://m3u8-proxy.albedo-bots.workers.dev/?url=';
+    // Opciones de proxies alternativos (probar en orden)
+    const corsProxies = [
+      'https://corsproxy.io/?',  // Opción 1
+      'https://api.allorigins.win/raw?url=',  // Opción 2
+      'https://cors-anywhere.herokuapp.com/',  // Opción 3 (requiere activación)
+    ];
+    
+    // Usar el primer proxy por ahora
+    const corsProxy = corsProxies[0];
     
     const modifiedContent = content.replace(
       /^(?!#)(.+\.ts.*)$/gm,
       (match) => {
         // Convertir URLs relativas a absolutas
         const fullUrl = match.startsWith('http') ? match : baseUrl + match;
-        // Proxear a través de Cloudflare Worker
-        return `${cloudflareWorker}${encodeURIComponent(fullUrl)}`;
+        // Proxear a través del proxy CORS
+        return `${corsProxy}${encodeURIComponent(fullUrl)}`;
       }
     );
     
@@ -253,7 +260,7 @@ router.get('/m3u8-proxy', async (req, res) => {
 });
 
 // NOTA: Esta ruta está desactivada en modo "proxy ligero"
-// Solo se proxea el M3U8, los segmentos se cargan directamente desde el origen
+// Solo se proxea el M3U8, los segmentos se cargan a través de proxy CORS externo
 /*
 router.get('/segment-proxy', async (req, res) => {
   try {
