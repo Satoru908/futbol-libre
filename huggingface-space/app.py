@@ -155,30 +155,49 @@ def validate_segment(data: bytes, content_type: str) -> bool:
         logger.error(f"[VALIDATION] Segment too small: {len(data)} bytes")
         return False
     
+    # CRÍTICO: Detectar si es HTML o JSON (error común)
+    try:
+        text_preview = data[:200].decode('utf-8', errors='ignore').strip()
+        if text_preview.startswith('<!DOCTYPE') or text_preview.startswith('<html') or '<body' in text_preview:
+            logger.error(f"[VALIDATION] Response is HTML, not video segment. Preview: {text_preview[:100]}")
+            return False
+        if text_preview.startswith('{') or text_preview.startswith('['):
+            logger.error(f"[VALIDATION] Response is JSON, not video segment. Preview: {text_preview[:100]}")
+            return False
+    except:
+        pass  # Si no se puede decodificar, probablemente es binario (bueno)
+    
     # Verificar Content-Type
-    if content_type and 'video' not in content_type.lower() and 'octet-stream' not in content_type.lower():
-        logger.error(f"[VALIDATION] Invalid Content-Type: {content_type}")
-        return False
+    if content_type:
+        ct_lower = content_type.lower()
+        if 'html' in ct_lower or 'json' in ct_lower or 'text' in ct_lower:
+            logger.error(f"[VALIDATION] Invalid Content-Type: {content_type}")
+            return False
     
     # CRÍTICO: Verificar que empiece con sync byte de MPEG-TS (0x47)
     # Si no tiene el sync byte, el fragmento está corrupto y HLS.js no podrá parsearlo
     if data[0] != 0x47:
         logger.error(f"[VALIDATION] Missing MPEG-TS sync byte (0x47), found: 0x{data[0]:02x}")
+        # Mostrar primeros bytes para debugging
+        hex_preview = ' '.join(f'{b:02x}' for b in data[:32])
+        logger.error(f"[VALIDATION] First 32 bytes: {hex_preview}")
         return False
     
     # Verificar múltiples sync bytes (cada 188 bytes en MPEG-TS)
     # Esto asegura que el fragmento tiene estructura válida
     packet_size = 188
     sync_count = 0
+    sync_positions = []
     for i in range(0, min(len(data), packet_size * 10), packet_size):
         if i < len(data) and data[i] == 0x47:
             sync_count += 1
+            sync_positions.append(i)
     
     if sync_count < 3:
-        logger.error(f"[VALIDATION] Not enough MPEG-TS sync bytes found: {sync_count}")
+        logger.error(f"[VALIDATION] Not enough MPEG-TS sync bytes found: {sync_count} at positions {sync_positions}")
         return False
     
-    logger.info(f"[VALIDATION] Valid MPEG-TS segment: {len(data)} bytes, {sync_count} sync bytes")
+    logger.info(f"[VALIDATION] ✅ Valid MPEG-TS segment: {len(data)} bytes, {sync_count} sync bytes at {sync_positions[:5]}")
     return True
 
 
@@ -201,14 +220,21 @@ def download_segment(url: str, max_retries: int = 3) -> tuple[bytes, str]:
                 url,
                 headers=FUBOHD_HEADERS,
                 timeout=120,
-                stream=True
+                stream=True,
+                allow_redirects=True
             )
+            
+            logger.info(f"[DOWNLOAD] Response status: {response.status_code}, Content-Type: {response.headers.get('content-type')}, Content-Length: {response.headers.get('content-length')}")
             
             # Leer todo el contenido de una vez para asegurar que esté completo
             data = b''
+            chunk_count = 0
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     data += chunk
+                    chunk_count += 1
+            
+            logger.info(f"[DOWNLOAD] Downloaded {len(data)} bytes in {chunk_count} chunks")
             
             # Verificar status code
             if response.status_code != 200:
@@ -307,20 +333,33 @@ async def proxy_segment(url: str = Query(..., description="URL del segmento .ts 
         # Intentar obtener del caché
         cached_data = get_from_cache(url)
         if cached_data:
-            return Response(
-                content=cached_data,
-                media_type="video/mp2t",
-                headers={
-                    "Content-Type": "video/mp2t",
-                    "Content-Length": str(len(cached_data)),
-                    "Access-Control-Allow-Origin": "*",
-                    "Access-Control-Allow-Methods": "GET, OPTIONS",
-                    "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
-                    "Cache-Control": "public, max-age=60",
-                    "X-Cache": "HIT",
-                    "X-Proxy-By": "Hugging Face Space"
-                }
-            )
+            # IMPORTANTE: Validar que el caché sea válido antes de devolverlo
+            content_type = "video/mp2t"
+            if not validate_segment(cached_data, content_type):
+                logger.warning(f"[CACHE] Cached segment is invalid, re-downloading")
+                # Eliminar del caché corrupto
+                cache_key = get_cache_key(url)
+                cache_path = get_cache_path(cache_key)
+                try:
+                    os.remove(cache_path)
+                    logger.info(f"[CACHE] Removed invalid cache file: {cache_key}")
+                except Exception as e:
+                    logger.error(f"[CACHE] Error removing cache: {e}")
+            else:
+                return Response(
+                    content=cached_data,
+                    media_type="video/mp2t",
+                    headers={
+                        "Content-Type": "video/mp2t",
+                        "Content-Length": str(len(cached_data)),
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, OPTIONS",
+                        "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept",
+                        "Cache-Control": "public, max-age=60",
+                        "X-Cache": "HIT",
+                        "X-Proxy-By": "Hugging Face Space"
+                    }
+                )
         
         # Descargar de fubohd.com
         data, content_type = download_segment(url)
@@ -401,6 +440,99 @@ async def health():
             "files": cache_files[:10]  # Mostrar solo los primeros 10
         }
     }
+
+
+@app.get("/debug-segment")
+async def debug_segment(url: str = Query(..., description="URL del segmento .ts a diagnosticar")):
+    """
+    Endpoint de diagnóstico para verificar qué está devolviendo fubohd.com
+    """
+    try:
+        if not url or not url.startswith('http'):
+            raise HTTPException(status_code=400, detail="Invalid URL parameter")
+        
+        logger.info(f"[DEBUG] Testing download from: {url[:100]}...")
+        
+        # Intentar descargar
+        response = requests.get(
+            url,
+            headers=FUBOHD_HEADERS,
+            timeout=30,
+            stream=True,
+            allow_redirects=True
+        )
+        
+        # Leer contenido
+        data = b''
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                data += chunk
+        
+        # Información básica
+        info = {
+            "url": url[:100] + "..." if len(url) > 100 else url,
+            "status_code": response.status_code,
+            "content_type": response.headers.get('content-type', 'N/A'),
+            "content_length_header": response.headers.get('content-length', 'N/A'),
+            "actual_size": len(data),
+            "headers": dict(response.headers)
+        }
+        
+        # Verificar si es HTML o JSON
+        is_html = False
+        is_json = False
+        text_preview = ""
+        
+        try:
+            text_preview = data[:500].decode('utf-8', errors='ignore')
+            if text_preview.startswith('<!DOCTYPE') or text_preview.startswith('<html') or '<body' in text_preview:
+                is_html = True
+            if text_preview.strip().startswith('{') or text_preview.strip().startswith('['):
+                is_json = True
+        except:
+            pass
+        
+        # Validar MPEG-TS
+        is_valid_ts = False
+        sync_bytes = []
+        first_bytes_hex = ""
+        
+        if len(data) > 0:
+            first_bytes_hex = ' '.join(f'{b:02x}' for b in data[:64])
+            
+            # Verificar sync bytes
+            packet_size = 188
+            for i in range(0, min(len(data), packet_size * 10), packet_size):
+                if i < len(data) and data[i] == 0x47:
+                    sync_bytes.append(i)
+            
+            is_valid_ts = len(sync_bytes) >= 3 and data[0] == 0x47
+        
+        return {
+            "success": True,
+            "info": info,
+            "validation": {
+                "is_html": is_html,
+                "is_json": is_json,
+                "is_valid_mpeg_ts": is_valid_ts,
+                "sync_bytes_found": len(sync_bytes),
+                "sync_byte_positions": sync_bytes[:10],
+                "first_byte": f"0x{data[0]:02x}" if len(data) > 0 else "N/A",
+                "first_64_bytes_hex": first_bytes_hex
+            },
+            "preview": {
+                "text": text_preview if (is_html or is_json) else "Binary data (not text)",
+                "length": len(text_preview)
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"[DEBUG] Error: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "traceback": str(e.__traceback__)
+        }
 
 
 if __name__ == "__main__":

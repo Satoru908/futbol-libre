@@ -74,22 +74,91 @@ export default async function handler(req) {
 
     console.log(`[Vercel CDN] Success: ${body.byteLength} bytes from Hugging Face (expected: ${contentLength || 'unknown'})`);
     
+    // CRÍTICO: Detectar si es HTML o JSON (error común cuando el token expira)
+    if (body.byteLength > 0 && body.byteLength < 100000) {
+      try {
+        const text = new TextDecoder().decode(body.slice(0, 200));
+        if (text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('<body')) {
+          console.error(`[Vercel CDN] Response is HTML, not video segment`);
+          return new Response(JSON.stringify({ 
+            error: 'Invalid video segment',
+            detail: 'Upstream returned HTML instead of video data. Token may have expired.',
+            preview: text.substring(0, 200)
+          }), {
+            status: 502,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+        if (text.trim().startsWith('{') || text.trim().startsWith('[')) {
+          console.error(`[Vercel CDN] Response is JSON, not video segment`);
+          return new Response(JSON.stringify({ 
+            error: 'Invalid video segment',
+            detail: 'Upstream returned JSON instead of video data',
+            preview: text.substring(0, 200)
+          }), {
+            status: 502,
+            headers: { 
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      } catch (e) {
+        // Si no se puede decodificar, probablemente es binario (bueno)
+      }
+    }
+    
     // Validar que el fragmento sea MPEG-TS válido
     if (body.byteLength > 0) {
       const firstByte = new Uint8Array(body)[0];
       if (firstByte !== 0x47) {
         console.error(`[Vercel CDN] Invalid MPEG-TS sync byte: 0x${firstByte.toString(16)}`);
+        // Mostrar primeros bytes para debugging
+        const preview = Array.from(new Uint8Array(body).slice(0, 32))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join(' ');
+        console.error(`[Vercel CDN] First 32 bytes: ${preview}`);
+        
         return new Response(JSON.stringify({ 
           error: 'Invalid video segment',
-          detail: 'Missing MPEG-TS sync byte'
+          detail: 'Missing MPEG-TS sync byte (0x47)',
+          firstByte: `0x${firstByte.toString(16)}`,
+          preview: preview
         }), {
-          status: 500,
+          status: 502,
           headers: { 
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*'
           }
         });
       }
+      
+      // Verificar múltiples sync bytes
+      const bytes = new Uint8Array(body);
+      let syncCount = 0;
+      for (let i = 0; i < Math.min(bytes.length, 188 * 10); i += 188) {
+        if (bytes[i] === 0x47) syncCount++;
+      }
+      
+      if (syncCount < 3) {
+        console.error(`[Vercel CDN] Not enough MPEG-TS sync bytes: ${syncCount}`);
+        return new Response(JSON.stringify({ 
+          error: 'Invalid video segment',
+          detail: `Not enough MPEG-TS sync bytes found: ${syncCount}`,
+          size: body.byteLength
+        }), {
+          status: 502,
+          headers: { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          }
+        });
+      }
+      
+      console.log(`[Vercel CDN] ✅ Valid MPEG-TS: ${syncCount} sync bytes`);
     }
 
     // Crear nueva respuesta con headers CORS y caché agresivo
