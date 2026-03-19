@@ -241,6 +241,10 @@ router.get('/m3u8-proxy', async (req, res) => {
       ? `${process.env.VERCEL_PROXY_URL}/api/proxy`
       : null;
     
+    logger.info(`[M3U8-PROXY] HF_PROXY_URL: ${process.env.HF_PROXY_URL || 'NOT SET'}`);
+    logger.info(`[M3U8-PROXY] VERCEL_PROXY_URL: ${process.env.VERCEL_PROXY_URL || 'NOT SET'}`);
+    logger.info(`[M3U8-PROXY] Using: ${vercelCdnUrl ? 'Vercel' : hfProxyUrl ? 'HF' : 'Railway direct'}`);
+    
     const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
     const host = req.get('host');
     
