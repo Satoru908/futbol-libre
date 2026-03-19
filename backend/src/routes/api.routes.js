@@ -238,11 +238,16 @@ router.get('/m3u8-proxy', async (req, res) => {
 
     const content = await m3u8ProxyService.proxyM3U8Content(url);
     
-    // ARQUITECTURA HÍBRIDA: Railway → Vercel CDN → Usuarios
-    // Los segmentos pasan por Vercel que actúa como CDN
+    // ARQUITECTURA HÍBRIDA: Railway → Hugging Face → Vercel → Usuarios
+    // Hugging Face descarga de fubohd.com, Vercel redistribuye
     const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
     
-    // URL de Vercel CDN (configurable via variable de entorno)
+    // URL de Hugging Face (descarga .ts de fubohd.com)
+    const hfProxyUrl = process.env.HF_PROXY_URL 
+      ? `${process.env.HF_PROXY_URL}/proxy`
+      : null;
+    
+    // URL de Vercel CDN (opcional, para caché adicional)
     const vercelCdnUrl = process.env.VERCEL_PROXY_URL 
       ? `${process.env.VERCEL_PROXY_URL}/api/proxy`
       : null;
@@ -254,20 +259,38 @@ router.get('/m3u8-proxy', async (req, res) => {
     const modifiedContent = content.replace(
       /^(?!#)(.+\.ts.*)$/gm,
       (match) => {
+        segmentIndex++;
         // Convertir URLs relativas a absolutas
         const fullUrl = match.startsWith('http') ? match : baseUrl + match;
         
-        // Si hay Vercel CDN configurado, usarlo (redistribuye a miles)
-        // Si no, usar Railway directamente (para pocos usuarios)
+        // Arquitectura: Railway → Vercel → Hugging Face → fubohd.com
+        // Railway apunta a Vercel (CDN que cachea)
+        // Vercel obtiene de Hugging Face (si no está en caché)
+        // Hugging Face descarga de fubohd.com (si no está en caché)
+        
         if (vercelCdnUrl) {
+          // Railway apunta a Vercel (Vercel obtendrá de HF internamente)
           return `${vercelCdnUrl}?url=${encodeURIComponent(fullUrl)}`;
+        } else if (hfProxyUrl) {
+          // Fallback: Railway apunta directo a Hugging Face
+          return `${hfProxyUrl}?url=${encodeURIComponent(fullUrl)}`;
         } else {
+          // Railway directo (sin CDN)
           return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
         }
       }
     );
     
-    const architecture = vercelCdnUrl ? 'Railway → Vercel CDN → Users' : 'Railway → Users';
+    // Determinar arquitectura
+    let architecture = 'Railway → Users';
+    if (vercelCdnUrl && hfProxyUrl) {
+      architecture = 'Railway (M3U8) → Vercel (caché) → Hugging Face (descarga) → fubohd.com';
+    } else if (vercelCdnUrl) {
+      architecture = 'Railway → Vercel CDN → Users';
+    } else if (hfProxyUrl) {
+      architecture = 'Railway (M3U8) → Hugging Face (descarga) → Users';
+    }
+    
     logger.info(`M3U8 modificado con ${segmentIndex} segmentos (${architecture})`);
     
     res.set({

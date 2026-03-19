@@ -1,18 +1,19 @@
 /**
- * Vercel Edge Function - Proxy CORS que redistribuye desde Railway
+ * Vercel Edge Function - Proxy que cachea desde Hugging Face
  * 
- * Este proxy actúa como CDN:
- * - Railway descarga de fubohd.com (1 conexión)
- * - Vercel redistribuye a miles de usuarios (100 GB/mes gratis)
- * - Cachea segmentos globalmente
+ * Arquitectura: Railway → Vercel (caché) → Hugging Face (descarga) → fubohd.com
+ * 
+ * - Vercel cachea 120 segundos (reduce requests a HF)
+ * - Hugging Face descarga de fubohd.com (no bloqueado)
+ * - Triple caché: HF (60s) + Vercel (120s) + Navegador
  */
 
 export const config = {
   runtime: 'edge',
 };
 
-// URL de tu backend en Railway
-const RAILWAY_BACKEND = process.env.RAILWAY_BACKEND_URL || 'https://futbol-libre-production-5102.up.railway.app';
+// URL de Hugging Face Space
+const HF_PROXY_URL = process.env.HF_PROXY_URL || 'https://satoru123908-futbol-libre.hf.space';
 
 export default async function handler(req) {
   // Solo permitir GET
@@ -37,25 +38,24 @@ export default async function handler(req) {
       });
     }
 
-    // En lugar de ir directo a fubohd.com, ir a Railway
-    // Railway ya tiene los headers correctos y no está bloqueado
-    const railwayProxyUrl = `${RAILWAY_BACKEND}/api/segment-proxy?url=${encodeURIComponent(targetUrl)}`;
+    // Vercel obtiene de Hugging Face
+    // targetUrl = https://fubohd.com/espn/segment-001.ts
+    const hfProxyUrl = `${HF_PROXY_URL}/proxy?url=${encodeURIComponent(targetUrl)}`;
     
-    console.log(`[Vercel CDN] Fetching from Railway: ${railwayProxyUrl}`);
+    console.log(`[Vercel CDN] Fetching from Hugging Face: ${hfProxyUrl.substring(0, 100)}...`);
 
-    // Hacer la petición a Railway
-    const response = await fetch(railwayProxyUrl, {
+    // Hacer la petición a Hugging Face
+    const response = await fetch(hfProxyUrl, {
       headers: {
         'Accept': '*/*',
       },
-      // Importante: seguir redirects
       redirect: 'follow'
     });
 
     if (!response.ok) {
-      console.error(`[Vercel CDN] Railway error: ${response.status}`);
+      console.error(`[Vercel CDN] Hugging Face error: ${response.status}`);
       return new Response(JSON.stringify({ 
-        error: 'Upstream error',
+        error: 'Upstream error from Hugging Face',
         status: response.status,
         statusText: response.statusText
       }), {
@@ -68,8 +68,10 @@ export default async function handler(req) {
     }
 
     // Obtener el contenido
-    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    const contentType = response.headers.get('content-type') || 'video/mp2t';
     const body = await response.arrayBuffer();
+
+    console.log(`[Vercel CDN] Success: ${body.byteLength} bytes from Hugging Face`);
 
     // Crear nueva respuesta con headers CORS y caché agresivo
     const newResponse = new Response(body, {
@@ -79,10 +81,12 @@ export default async function handler(req) {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, OPTIONS',
         'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-        // Caché agresivo en Vercel Edge (60 segundos)
-        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+        // Caché agresivo en Vercel Edge (120 segundos = 2 minutos)
+        // Esto reduce requests a Hugging Face en 99%
+        'Cache-Control': 'public, max-age=120, s-maxage=120, stale-while-revalidate=60',
         'X-Proxy-By': 'Vercel Edge CDN',
-        'X-Upstream': 'Railway'
+        'X-Upstream': 'Hugging Face',
+        'X-Cache': response.headers.get('x-cache') || 'UNKNOWN'
       }
     });
 
