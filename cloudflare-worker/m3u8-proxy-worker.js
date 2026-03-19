@@ -9,7 +9,7 @@
  */
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request) {
     // Manejar preflight CORS (OPTIONS)
     if (request.method === 'OPTIONS') {
       return new Response(null, {
