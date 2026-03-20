@@ -96,9 +96,15 @@ def extract_m3u8_url(html: str) -> str:
 @app.get("/m3u8")
 async def get_m3u8(stream: str = Query(...)):
     try:
+        logger.info(f"[RENDER M3U8] ========== NEW REQUEST ==========")
         logger.info(f"[RENDER M3U8] Stream: {stream}")
         
+        # Log de variables de entorno
+        vercel_cdn_url = os.environ.get('VERCEL_CDN_URL', '')
+        logger.info(f"[RENDER M3U8] VERCEL_CDN_URL configured: {vercel_cdn_url if vercel_cdn_url else 'NOT SET'}")
+        
         provider_url = f"https://la14hd.com/vivo/canales.php?stream={stream}"
+        logger.info(f"[RENDER M3U8] Fetching HTML from: {provider_url}")
         html_response = requests.get(provider_url, headers=LA14HD_HEADERS, timeout=30)
         
         if html_response.status_code != 200:
@@ -106,18 +112,25 @@ async def get_m3u8(stream: str = Query(...)):
         
         m3u8_url = extract_m3u8_url(html_response.text)
         if not m3u8_url:
+            logger.error(f"[RENDER M3U8] Could not extract M3U8 URL from HTML")
             raise HTTPException(status_code=502, detail="Could not extract M3U8 URL")
         
+        logger.info(f"[RENDER M3U8] M3U8 URL extracted: {m3u8_url[:100]}...")
         m3u8_response = requests.get(m3u8_url, headers=FUBOHD_HEADERS, timeout=30)
         
         if m3u8_response.status_code == 404:
+            logger.error(f"[RENDER M3U8] Error fetching M3U8: 404")
             raise HTTPException(status_code=404, detail=f"Stream '{stream}' not available")
         
         if m3u8_response.status_code != 200:
+            logger.error(f"[RENDER M3U8] Error fetching M3U8: {m3u8_response.status_code}")
             raise HTTPException(status_code=502, detail=f"Error fetching M3U8: {m3u8_response.status_code}")
         
         m3u8_content = m3u8_response.text
         base_url = m3u8_url[:m3u8_url.rfind('/') + 1]
+        
+        # Contar segmentos
+        segment_count = len([line for line in m3u8_content.split('\n') if line and not line.startswith('#')])
         
         # Usar Vercel CDN si está configurado, sino usar Render directo
         vercel_cdn_url = os.environ.get('VERCEL_CDN_URL', '')
@@ -130,7 +143,12 @@ async def get_m3u8(stream: str = Query(...)):
                 m3u8_content,
                 flags=re.MULTILINE
             )
-            logger.info(f"[RENDER M3U8] ✅ M3U8 modified (segments via Vercel CDN: {vercel_cdn_url})")
+            logger.info(f"[RENDER M3U8] ✅ M3U8 modified with {segment_count} segments")
+            logger.info(f"[RENDER M3U8] Architecture: Usuario → Vercel CDN ({vercel_cdn_url}) → Render → fubohd.com")
+            # Log de ejemplo de URL modificada
+            first_segment = [line for line in modified_content.split('\n') if line and not line.startswith('#')][0] if segment_count > 0 else None
+            if first_segment:
+                logger.info(f"[RENDER M3U8] Example segment URL: {first_segment[:120]}...")
         else:
             # Sin Vercel, usar Render directo
             render_url = os.environ.get('RENDER_URL', 'https://futbol-libre-1ahg.onrender.com')
@@ -140,7 +158,9 @@ async def get_m3u8(stream: str = Query(...)):
                 m3u8_content,
                 flags=re.MULTILINE
             )
-            logger.info(f"[RENDER M3U8] ✅ M3U8 modified (segments direct via Render)")
+            logger.info(f"[RENDER M3U8] ✅ M3U8 modified with {segment_count} segments")
+            logger.info(f"[RENDER M3U8] Architecture: Usuario → Render ({render_url}) → fubohd.com")
+            logger.info(f"[RENDER M3U8] ⚠️ WARNING: VERCEL_CDN_URL not configured, serving directly from Render")
         
         return Response(
             content=modified_content,
@@ -162,10 +182,14 @@ async def get_m3u8(stream: str = Query(...)):
 @app.get("/proxy")
 async def proxy_segment(url: str = Query(...)):
     try:
+        logger.info(f"[RENDER SEGMENT] ========== NEW REQUEST ==========")
+        logger.info(f"[RENDER SEGMENT] Requested URL: {url[:100]}...")
+        
         cache_key = hashlib.md5(url.encode()).hexdigest()
         
         cached_data = segment_cache.get(cache_key)
         if cached_data:
+            logger.info(f"[RENDER SEGMENT] ✅ Cache HIT ({len(cached_data)} bytes)")
             return Response(
                 content=cached_data,
                 media_type="video/mp2t",
@@ -178,14 +202,22 @@ async def proxy_segment(url: str = Query(...)):
             )
         
         if not url or not url.startswith('http'):
+            logger.error(f"[RENDER SEGMENT] Invalid URL: {url}")
             raise HTTPException(status_code=400, detail="Invalid URL")
         
+        logger.info(f"[RENDER SEGMENT] Cache MISS, downloading from fubohd.com...")
         response = requests.get(url, headers=FUBOHD_HEADERS, timeout=30, stream=True)
         
+        logger.info(f"[RENDER SEGMENT] Response status: {response.status_code}")
+        logger.info(f"[RENDER SEGMENT] Content-Type: {response.headers.get('content-type')}")
+        
         if response.status_code != 200:
+            logger.error(f"[RENDER SEGMENT] HTTP Error {response.status_code} from fubohd.com")
+            logger.error(f"[RENDER SEGMENT] Response headers: {dict(response.headers)}")
             raise HTTPException(status_code=response.status_code)
         
         data = b''.join(response.iter_content(chunk_size=8192))
+        logger.info(f"[RENDER SEGMENT] ✅ Downloaded {len(data)} bytes, caching...")
         segment_cache.put(cache_key, data)
         
         return Response(
