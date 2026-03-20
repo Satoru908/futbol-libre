@@ -173,6 +173,31 @@ router.get('/m3u8-direct', async (req, res) => {
       return res.status(400).json({ error: 'Parámetro stream requerido' });
     }
 
+    // Si hay RENDER_PROXY_URL configurado, usar Render para obtener M3U8 con tokens frescos
+    const renderProxyUrl = process.env.RENDER_PROXY_URL;
+    
+    if (renderProxyUrl) {
+      // Render obtiene tokens frescos y sirve todo
+      const m3u8Url = `${renderProxyUrl}/m3u8?stream=${encodeURIComponent(stream)}`;
+      
+      logger.info(`[m3u8-direct] Using Render proxy: ${m3u8Url}`);
+      
+      res.set({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
+      });
+
+      return res.json({
+        success: true,
+        streamId: stream,
+        m3u8Url: m3u8Url,
+        architecture: 'Railway (API) → Render (M3U8 + Segments) → fubohd.com',
+        timestamp: Date.now()
+      });
+    }
+
+    // Fallback: Railway obtiene M3U8 y lo modifica (arquitectura anterior)
     const baseUrl = env.PROVIDER_BASE_URL;
     const providerUrl = `${baseUrl}?stream=${encodeURIComponent(stream)}`;
     
@@ -195,6 +220,7 @@ router.get('/m3u8-direct', async (req, res) => {
       success: true,
       streamId: stream,
       m3u8Url: proxyUrl,
+      architecture: 'Railway (Full)',
       timestamp: Date.now()
     });
 
