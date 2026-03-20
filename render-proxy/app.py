@@ -119,15 +119,28 @@ async def get_m3u8(stream: str = Query(...)):
         m3u8_content = m3u8_response.text
         base_url = m3u8_url[:m3u8_url.rfind('/') + 1]
         
-        # Modificar para que los .ts pasen por Vercel CDN
-        modified_content = re.sub(
-            r'^(?!#)(.+\.ts.*)$',
-            lambda m: f"https://futbol-libre.vercel.app/api/segment?url={requests.utils.quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
-            m3u8_content,
-            flags=re.MULTILINE
-        )
+        # Usar Vercel CDN si está configurado, sino usar Render directo
+        vercel_cdn_url = os.environ.get('VERCEL_CDN_URL', '')
         
-        logger.info(f"[RENDER M3U8] ✅ M3U8 modified (segments via Vercel CDN)")
+        if vercel_cdn_url:
+            # Modificar para que los .ts pasen por Vercel CDN
+            modified_content = re.sub(
+                r'^(?!#)(.+\.ts.*)$',
+                lambda m: f"{vercel_cdn_url}/api/segment?url={requests.utils.quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
+                m3u8_content,
+                flags=re.MULTILINE
+            )
+            logger.info(f"[RENDER M3U8] ✅ M3U8 modified (segments via Vercel CDN: {vercel_cdn_url})")
+        else:
+            # Sin Vercel, usar Render directo
+            render_url = os.environ.get('RENDER_URL', 'https://futbol-libre-1ahg.onrender.com')
+            modified_content = re.sub(
+                r'^(?!#)(.+\.ts.*)$',
+                lambda m: f"{render_url}/proxy?url={requests.utils.quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
+                m3u8_content,
+                flags=re.MULTILINE
+            )
+            logger.info(f"[RENDER M3U8] ✅ M3U8 modified (segments direct via Render)")
         
         return Response(
             content=modified_content,
