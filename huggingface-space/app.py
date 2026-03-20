@@ -43,18 +43,11 @@ MAX_CACHE_SIZE = 10 * 1024 * 1024 * 1024  # 10 GB
 # Crear directorio de caché
 os.makedirs(CACHE_DIR, exist_ok=True)
 
-# Headers para fubohd.com
+# Headers para fubohd.com - Usar los mismos que Railway (que SÍ funcionan)
 FUBOHD_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://la14hd.com/',
-    'Origin': 'https://la14hd.com',
-    'Accept': '*/*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Accept-Encoding': 'gzip, deflate, br',
-    'Connection': 'keep-alive',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'cross-site'
+    'Origin': 'https://la14hd.com'
 }
 
 
