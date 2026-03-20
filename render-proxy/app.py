@@ -13,6 +13,7 @@ import re
 from datetime import datetime
 from collections import OrderedDict
 import hashlib
+from urllib.parse import quote
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -139,7 +140,7 @@ async def get_m3u8(stream: str = Query(...)):
             # Modificar para que los .ts pasen por Vercel CDN
             modified_content = re.sub(
                 r'^(?!#)(.+\.ts.*)$',
-                lambda m: f"{vercel_cdn_url}/api/segment?url={requests.utils.quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
+                lambda m: f"{vercel_cdn_url}/api/segment?url={quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
                 m3u8_content,
                 flags=re.MULTILINE
             )
@@ -154,7 +155,7 @@ async def get_m3u8(stream: str = Query(...)):
             render_url = os.environ.get('RENDER_URL', 'https://futbol-libre-1ahg.onrender.com')
             modified_content = re.sub(
                 r'^(?!#)(.+\.ts.*)$',
-                lambda m: f"{render_url}/proxy?url={requests.utils.quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
+                lambda m: f"{render_url}/proxy?url={quote(base_url + m.group(1) if not m.group(1).startswith('http') else m.group(1))}",
                 m3u8_content,
                 flags=re.MULTILINE
             )
