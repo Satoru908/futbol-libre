@@ -11,6 +11,8 @@ import logging
 import asyncio
 import re
 from datetime import datetime
+from collections import OrderedDict
+import hashlib
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -37,6 +39,30 @@ FUBOHD_HEADERS = {
     'Origin': 'https://la14hd.com'
 }
 
+# Caché en memoria para fragmentos .ts (LRU cache)
+class LRUCache:
+    def __init__(self, max_size=50):  # 50 fragmentos ~= 50MB
+        self.cache = OrderedDict()
+        self.max_size = max_size
+    
+    def get(self, key):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return None
+    
+    def put(self, key, value):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        if len(self.cache) > self.max_size:
+            self.cache.popitem(last=False)
+    
+    def size(self):
+        return len(self.cache)
+
+segment_cache = LRUCache(max_size=50)
+
 # Keep-alive task
 async def keep_alive():
     await asyncio.sleep(60)
@@ -55,7 +81,12 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "render-hls-complete-proxy", "time": datetime.now().isoformat()}
+    return {
+        "status": "ok",
+        "service": "render-hls-complete-proxy",
+        "time": datetime.now().isoformat(),
+        "cache_size": segment_cache.size()
+    }
 
 def extract_m3u8_url(html: str) -> str:
     """Extrae la URL del M3U8 desde el HTML de la14hd.com"""
@@ -93,9 +124,19 @@ async def get_m3u8(stream: str = Query(...)):
         # Obtener M3U8
         m3u8_response = requests.get(m3u8_url, headers=FUBOHD_HEADERS, timeout=30)
         
+        if m3u8_response.status_code == 404:
+            logger.error(f"[RENDER M3U8] Stream not available (404): {stream}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Stream '{stream}' is not available at this time. The broadcast may not have started yet or the server is down."
+            )
+        
         if m3u8_response.status_code != 200:
             logger.error(f"[RENDER M3U8] Error fetching M3U8: {m3u8_response.status_code}")
-            raise HTTPException(status_code=502, detail="Error fetching M3U8")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Error fetching M3U8 from upstream: {m3u8_response.status_code}"
+            )
         
         m3u8_content = m3u8_response.text
         base_url = m3u8_url[:m3u8_url.rfind('/') + 1]
@@ -132,9 +173,28 @@ async def get_m3u8(stream: str = Query(...)):
 
 @app.get("/proxy")
 async def proxy_segment(url: str = Query(...)):
-    """Proxy para fragmentos .ts con tokens frescos"""
+    """Proxy para fragmentos .ts con tokens frescos y caché en memoria"""
     try:
-        logger.info(f"[RENDER SEGMENT] Downloading: {url[:80]}...")
+        # Generar clave de caché
+        cache_key = hashlib.md5(url.encode()).hexdigest()
+        
+        # Verificar caché
+        cached_data = segment_cache.get(cache_key)
+        if cached_data:
+            logger.info(f"[RENDER SEGMENT] ✅ Cache HIT: {url[-40:]}")
+            return Response(
+                content=cached_data,
+                media_type="video/mp2t",
+                headers={
+                    "Content-Type": "video/mp2t",
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=60",
+                    "X-Proxy-By": "Render",
+                    "X-Cache": "HIT"
+                }
+            )
+        
+        logger.info(f"[RENDER SEGMENT] Downloading: {url[-60:]}")
         
         if not url or not url.startswith('http'):
             raise HTTPException(status_code=400, detail="Invalid URL")
@@ -147,7 +207,10 @@ async def proxy_segment(url: str = Query(...)):
         
         data = b''.join(response.iter_content(chunk_size=8192))
         
-        logger.info(f"[RENDER SEGMENT] ✅ Success: {len(data)} bytes")
+        # Guardar en caché
+        segment_cache.put(cache_key, data)
+        
+        logger.info(f"[RENDER SEGMENT] ✅ Downloaded & cached: {len(data)} bytes")
         
         return Response(
             content=data,
@@ -156,7 +219,8 @@ async def proxy_segment(url: str = Query(...)):
                 "Content-Type": "video/mp2t",
                 "Access-Control-Allow-Origin": "*",
                 "Cache-Control": "public, max-age=60",
-                "X-Proxy-By": "Render"
+                "X-Proxy-By": "Render",
+                "X-Cache": "MISS"
             }
         )
         
