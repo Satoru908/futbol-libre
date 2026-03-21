@@ -4,7 +4,6 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const env = require('../config/env');
-const streamtpProvider = require('../providers/streamtpnew.provider');
 
 // Cache para datos de agenda y canales
 let agendaCache = null;
@@ -59,8 +58,9 @@ router.get('/health', (req, res) => {
     ok: true, 
     service: 'futbol-libre-api', 
     timestamp: Date.now(),
-    architecture: 'Railway (API + M3U8) → Usuario (descarga directa de streameasthd.net)',
-    provider: 'streamtpnew.com',
+    provider: 'bolaloca.my',
+    playerType: 'iframe',
+    totalChannels: 200,
     environment: env.NODE_ENV
   });
 });
@@ -68,8 +68,6 @@ router.get('/health', (req, res) => {
 /**
  * GET /api/agenda
  * Retorna la agenda de eventos scrapeada
- * 
- * Respuesta: Array de eventos con timestamps, canales, etc.
  */
 router.get('/agenda', (req, res) => {
   try {
@@ -97,9 +95,7 @@ router.get('/agenda', (req, res) => {
 
 /**
  * GET /api/channels
- * Retorna la lista completa de canales disponibles
- * 
- * Respuesta: { channels: [...] }
+ * Retorna la lista completa de canales de bolaloca.my
  */
 router.get('/channels', (req, res) => {
   try {
@@ -117,6 +113,8 @@ router.get('/channels', (req, res) => {
       success: true,
       count: Array.isArray(channels) ? channels.length : 0,
       channels: channels,
+      provider: 'bolaloca.my',
+      playerType: 'iframe',
       timestamp: Date.now()
     });
 
@@ -127,15 +125,15 @@ router.get('/channels', (req, res) => {
 });
 
 /**
- * Endpoint para obtener URL M3U8 directa de streamtpnew.com
+ * Endpoint para obtener URL de iframe de bolaloca.my
  * 
- * GET /api/stream-url?stream=espn
+ * GET /api/stream-url?stream=bolaloca_89
  * 
  * Respuesta:
  * {
- *   "streamId": "espn",
- *   "m3u8Url": "https://24a1.streameasthd.net:443/global/espn/index.m3u8?token=...",
- *   "provider": "streamtpnew.com"
+ *   "streamId": "bolaloca_89",
+ *   "iframeUrl": "https://bolaloca.my/player/capo/89",
+ *   "provider": "bolaloca.my"
  * }
  */
 router.get('/stream-url', async (req, res) => {
@@ -146,16 +144,26 @@ router.get('/stream-url', async (req, res) => {
       logger.error('[API] stream-url: Parámetro stream faltante');
       return res.status(400).json({ 
         error: 'Parámetro stream requerido',
-        example: '/api/stream-url?stream=espn'
+        example: '/api/stream-url?stream=bolaloca_89'
       });
     }
 
-    logger.info(`[API] stream-url: Obteniendo M3U8 para stream: ${stream}`);
+    logger.info(`[API] stream-url: Obteniendo URL para stream: ${stream}`);
     
-    // Obtener M3U8 URL de streamtpnew.com
-    const m3u8Url = await streamtpProvider.getM3U8Url(stream);
+    // Extraer el número de canal de bolaloca
+    const channelMatch = stream.match(/bolaloca_(\d+)/);
     
-    logger.info(`[API] stream-url: ✅ M3U8 obtenido exitosamente`);
+    if (!channelMatch) {
+      return res.status(400).json({
+        error: 'Formato de stream inválido',
+        example: '/api/stream-url?stream=bolaloca_89'
+      });
+    }
+    
+    const channelNumber = channelMatch[1];
+    const iframeUrl = `https://bolaloca.my/player/capo/${channelNumber}`;
+    
+    logger.info(`[API] stream-url: ✅ URL de iframe generada`);
     
     res.set({
       'Access-Control-Allow-Origin': '*',
@@ -166,10 +174,11 @@ router.get('/stream-url', async (req, res) => {
     res.json({
       success: true,
       streamId: stream,
-      m3u8Url: m3u8Url,
-      provider: 'streamtpnew.com',
-      architecture: 'Usuario descarga directamente de streameasthd.net',
-      tokenValidity: '15 horas',
+      channelNumber: parseInt(channelNumber),
+      iframeUrl: iframeUrl,
+      provider: 'bolaloca.my',
+      playerType: 'iframe',
+      note: 'Usar iframe sin sandbox para reproducir',
       timestamp: Date.now()
     });
 
@@ -181,66 +190,6 @@ router.get('/stream-url', async (req, res) => {
       error: 'Error obteniendo stream',
       message: error.message,
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
-  }
-});
-
-/**
- * Endpoint de prueba para verificar el provider
- */
-router.get('/test-provider', async (req, res) => {
-  try {
-    logger.info('[API] test-provider: Probando provider de streamtpnew.com');
-    
-    const testStream = 'espn';
-    const m3u8Url = await streamtpProvider.getM3U8Url(testStream);
-    
-    res.json({
-      success: true,
-      message: 'Provider funcionando correctamente',
-      testStream: testStream,
-      m3u8Url: m3u8Url
-    });
-    
-  } catch (error) {
-    logger.error('[API] test-provider: Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message,
-      stack: error.stack
-    });
-  }
-});
-
-/**
- * Endpoint para forzar scraping de canales
- */
-router.get('/scrape-channels', async (req, res) => {
-  try {
-    logger.info('[API] scrape-channels: Iniciando scraping manual');
-    
-    const { scrapeAndSave } = require('../scrapers/channels.scraper');
-    const channels = await scrapeAndSave();
-    
-    if (channels) {
-      res.json({
-        success: true,
-        message: 'Canales scrapeados exitosamente',
-        count: channels.length,
-        channels: channels.slice(0, 5) // Mostrar solo los primeros 5
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        error: 'Error scrapeando canales'
-      });
-    }
-    
-  } catch (error) {
-    logger.error('[API] scrape-channels: Error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message
     });
   }
 });

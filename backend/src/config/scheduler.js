@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { scrapeAgenda } = require('../scrapers/agenda.scraper');
-const { scrapeAndSave: scrapeChannels } = require('../scrapers/channels.scraper');
+const { saveChannels: saveBolalocaChannels } = require('../scrapers/bolaloca-channels.scraper');
 const logger = require('../utils/logger');
 
 /**
@@ -19,17 +19,11 @@ function initScheduledTasks() {
     scrapeAgenda();
   }, 5000);
 
-  // Actualizar canales cada 6 horas
-  cron.schedule('0 */6 * * *', () => {
-    logger.info('Ejecutando scraping de canales programado');
-    scrapeChannels();
-  });
-
-  // Ejecutar scraping inicial de canales después de 10 segundos
+  // Generar canales de bolaloca.my al iniciar (no necesita actualización frecuente)
   setTimeout(() => {
-    logger.info('Ejecutando scraping inicial de canales');
-    scrapeChannels();
-  }, 10000);
+    logger.info('Generando canales de bolaloca.my');
+    saveBolalocaChannels();
+  }, 2000);
 }
 
 module.exports = { initScheduledTasks };
