@@ -212,4 +212,37 @@ router.get('/test-provider', async (req, res) => {
   }
 });
 
+/**
+ * Endpoint para forzar scraping de canales
+ */
+router.get('/scrape-channels', async (req, res) => {
+  try {
+    logger.info('[API] scrape-channels: Iniciando scraping manual');
+    
+    const { scrapeAndSave } = require('../scrapers/channels.scraper');
+    const channels = await scrapeAndSave();
+    
+    if (channels) {
+      res.json({
+        success: true,
+        message: 'Canales scrapeados exitosamente',
+        count: channels.length,
+        channels: channels.slice(0, 5) // Mostrar solo los primeros 5
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: 'Error scrapeando canales'
+      });
+    }
+    
+  } catch (error) {
+    logger.error('[API] scrape-channels: Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
