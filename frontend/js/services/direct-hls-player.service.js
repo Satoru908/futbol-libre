@@ -103,14 +103,14 @@ export class DirectHLSPlayerService {
       width: 300px;
       height: 80px;
       z-index: 11;
-      pointer-events: none;
+      pointer-events: auto;
       cursor: pointer;
-      border: 2px dashed rgba(255, 255, 255, 0.3);
+      border: 2px dashed rgba(255, 255, 255, 0.5);
       border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.7);
       color: white;
       font-size: 14px;
       font-weight: bold;
@@ -122,25 +122,37 @@ export class DirectHLSPlayerService {
     
     // Hacer que solo la zona de unmute sea clickeable
     unmuteZone.addEventListener('mouseenter', () => {
-      unmuteZone.style.background = 'rgba(0, 0, 0, 0.7)';
-      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+      unmuteZone.style.background = 'rgba(0, 0, 0, 0.9)';
+      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.8)';
+      unmuteZone.style.transform = 'translateX(-50%) scale(1.05)';
     });
     
     unmuteZone.addEventListener('mouseleave', () => {
-      unmuteZone.style.background = 'rgba(0, 0, 0, 0.5)';
-      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+      unmuteZone.style.background = 'rgba(0, 0, 0, 0.7)';
+      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+      unmuteZone.style.transform = 'translateX(-50%) scale(1)';
     });
     
-    // Cuando se hace click en la zona de unmute, permitir que el click pase al iframe
-    unmuteZone.addEventListener('click', () => {
-      console.log('[DirectHLS] Click en zona de unmute, permitiendo interacción con iframe');
-      // Remover el overlay después de 2 segundos para permitir interacción completa
-      setTimeout(() => {
-        overlay.style.display = 'none';
-        unmuteZone.style.display = 'none';
-        console.log('[DirectHLS] Overlay removido, iframe completamente interactivo');
-      }, 2000);
+    // Cuando se hace click en la zona de unmute, remover overlays
+    unmuteZone.addEventListener('click', (e) => {
+      console.log('[DirectHLS] Click en zona de unmute, removiendo overlays');
+      e.stopPropagation();
+      
+      // Remover overlays inmediatamente para permitir interacción con iframe
+      overlay.remove();
+      unmuteZone.remove();
+      
+      console.log('[DirectHLS] Overlays removidos, iframe completamente interactivo');
     });
+    
+    // También remover overlay si se hace click fuera de la zona (después de 3 segundos)
+    setTimeout(() => {
+      if (overlay.parentElement) {
+        console.log('[DirectHLS] Auto-removiendo overlay después de 3 segundos');
+        overlay.remove();
+        unmuteZone.remove();
+      }
+    }, 3000);
     
     // Agregar elementos al DOM
     iframeWrapper.appendChild(iframe);
