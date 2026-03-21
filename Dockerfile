@@ -12,7 +12,9 @@ RUN npm ci --only=production
 
 # Copiar el código del backend
 COPY backend/src ./src
-COPY backend/data ./data
+
+# Crear carpeta data (se llenará con scrapers)
+RUN mkdir -p ./data
 
 # Copiar el frontend
 COPY frontend ./frontend

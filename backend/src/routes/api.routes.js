@@ -21,7 +21,7 @@ function loadDataFile(filename, cacheKey, cacheDurationMs = CACHE_DURATION) {
     const filepath = path.join(__dirname, `../../data/${filename}`);
     
     if (!fs.existsSync(filepath)) {
-      logger.warn(`Archivo no encontrado: ${filepath}`);
+      logger.warn(`Archivo no encontrado: ${filepath} - Se creará con el scraper`);
       return null;
     }
 
