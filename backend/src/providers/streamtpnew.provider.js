@@ -25,19 +25,25 @@ const HEADERS = {
  */
 function decodeStreamtpUrl(html) {
   try {
-    // 1. Extraer el array dA
-    const daMatch = html.match(/dA=\[(.*?)\];/s);
-    if (!daMatch) {
-      logger.error('[STREAMTP] No se encontró el array dA');
+    // 1. Extraer el array (nombre de variable dinámico: dA, AZ, zl, etc.)
+    // Buscar patrón: var playbackURL="",VARIABLE=[...]
+    const arrayMatch = html.match(/var playbackURL="",(\w+)=\[(.*?)\];/s);
+    
+    if (!arrayMatch) {
+      logger.error('[STREAMTP] No se encontró el array de datos');
       return null;
     }
+    
+    const arrayName = arrayMatch[1];
+    const arrayContent = arrayMatch[2];
+    logger.info(`[STREAMTP] Array encontrado: ${arrayName}`);
 
     // 2. Extraer pares [index, base64]
     const pairRegex = /\[(\d+),"([^"]+)"\]/g;
     const pairs = [];
     let match;
     
-    while ((match = pairRegex.exec(daMatch[1])) !== null) {
+    while ((match = pairRegex.exec(arrayContent)) !== null) {
       pairs.push([parseInt(match[1]), match[2]]);
     }
 
@@ -49,20 +55,30 @@ function decodeStreamtpUrl(html) {
     // 3. Ordenar por índice
     pairs.sort((a, b) => a[0] - b[0]);
 
-    // 4. Extraer funciones de offset
-    const ayabsMatch = html.match(/function ayaBS\(\)\{return (\d+);\}/);
-    const vrtodMatch = html.match(/function vRTOd\(\)\{return (\d+);\}/);
-
-    if (!ayabsMatch || !vrtodMatch) {
+    // 4. Extraer funciones de offset (buscar cualquier patrón)
+    const functionMatches = html.match(/function (\w+)\(\)\{return (\d+);\}/g);
+    
+    if (!functionMatches || functionMatches.length < 2) {
       logger.error('[STREAMTP] No se encontraron funciones de offset');
       return null;
     }
 
-    const ayabs = parseInt(ayabsMatch[1]);
-    const vrtod = parseInt(vrtodMatch[1]);
-    const k = ayabs + vrtod;
+    // Extraer los valores numéricos de las funciones
+    const offsets = [];
+    for (const funcMatch of functionMatches) {
+      const valueMatch = funcMatch.match(/return (\d+);/);
+      if (valueMatch) {
+        offsets.push(parseInt(valueMatch[1]));
+      }
+    }
 
-    logger.info(`[STREAMTP] Offset calculado: ${k} (${ayabs} + ${vrtod})`);
+    if (offsets.length < 2) {
+      logger.error('[STREAMTP] No se pudieron extraer los offsets');
+      return null;
+    }
+
+    const k = offsets[0] + offsets[1];
+    logger.info(`[STREAMTP] Offset calculado: ${k} (${offsets[0]} + ${offsets[1]})`);
 
     // 5. Decodificar cada par
     let decodedUrl = '';
@@ -103,6 +119,7 @@ async function getM3U8Url(stream) {
     logger.info(`[STREAMTP] Obteniendo M3U8 para stream: ${stream}`);
     
     const url = `${STREAMTP_BASE_URL}?stream=${stream}`;
+    logger.info(`[STREAMTP] URL completa: ${url}`);
     
     const response = await axios.get(url, {
       headers: HEADERS,
@@ -110,29 +127,40 @@ async function getM3U8Url(stream) {
     });
 
     if (response.status !== 200) {
+      logger.error(`[STREAMTP] HTTP error: ${response.status}`);
       throw new Error(`HTTP ${response.status}`);
     }
 
     const html = response.data;
+    logger.info(`[STREAMTP] HTML recibido: ${html.length} bytes`);
+    
+    // Verificar que sea el HTML del player, no la página de índice
+    if (html.includes('<title>24/7 Channels')) {
+      logger.error(`[STREAMTP] Error: Se obtuvo la página de índice en lugar del player`);
+      throw new Error('URL incorrecta - se obtuvo página de índice');
+    }
     
     // Decodificar URL
     const m3u8Url = decodeStreamtpUrl(html);
     
     if (!m3u8Url) {
+      logger.error(`[STREAMTP] No se pudo decodificar la URL M3U8`);
       throw new Error('No se pudo decodificar la URL M3U8');
     }
 
     // Verificar que sea una URL válida
     if (!m3u8Url.startsWith('http')) {
+      logger.error(`[STREAMTP] URL decodificada inválida: ${m3u8Url}`);
       throw new Error('URL decodificada inválida');
     }
 
-    logger.info(`[STREAMTP] ✅ M3U8 obtenido exitosamente`);
+    logger.info(`[STREAMTP] ✅ M3U8 obtenido exitosamente: ${m3u8Url.substring(0, 80)}...`);
     
     return m3u8Url;
 
   } catch (error) {
     logger.error(`[STREAMTP] Error obteniendo M3U8: ${error.message}`);
+    logger.error(`[STREAMTP] Stack: ${error.stack}`);
     throw error;
   }
 }

@@ -1,0 +1,445 @@
+{
+  "channels": [
+    {
+      "id": "espn",
+      "name": "ESPN 1",
+      "logo": "https://via.placeholder.com/150?text=ESPN%201",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn2",
+      "name": "ESPN 2",
+      "logo": "https://via.placeholder.com/150?text=ESPN%202",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn3",
+      "name": "ESPN 3",
+      "logo": "https://via.placeholder.com/150?text=ESPN%203",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn4",
+      "name": "ESPN 4",
+      "logo": "https://via.placeholder.com/150?text=ESPN%204",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn5",
+      "name": "ESPN 5",
+      "logo": "https://via.placeholder.com/150?text=ESPN%205",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn6",
+      "name": "ESPN 6",
+      "logo": "https://via.placeholder.com/150?text=ESPN%206",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn7",
+      "name": "ESPN 7",
+      "logo": "https://via.placeholder.com/150?text=ESPN%207",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "winplus",
+      "name": "Win Sports +",
+      "logo": "https://via.placeholder.com/150?text=Win%20Sports%20%2B",
+      "category": "Win Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "winplus2",
+      "name": "Win Sports + (Op2)",
+      "logo": "https://via.placeholder.com/150?text=Win%20Sports%20%2B%20(Op2)",
+      "category": "Win Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "winsports",
+      "name": "Win Sports",
+      "logo": "https://via.placeholder.com/150?text=Win%20Sports",
+      "category": "Win Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "winplusonline1",
+      "name": "Win Play +",
+      "logo": "https://via.placeholder.com/150?text=Win%20Play%20%2B",
+      "category": "Win Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox1ar",
+      "name": "Fox Sports 1 (Argentina)",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%201%20(Argentina)",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox2ar",
+      "name": "Fox Sports 2 (Argentina)",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%202%20(Argentina)",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox3ar",
+      "name": "Fox Sports 3 (Argentina)",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%203%20(Argentina)",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "dsports",
+      "name": "Dsports",
+      "logo": "https://via.placeholder.com/150?text=Dsports",
+      "category": "DSports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "dsports2",
+      "name": "Dsports 2",
+      "logo": "https://via.placeholder.com/150?text=Dsports%202",
+      "category": "DSports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "dsportsplus",
+      "name": "Dsports +",
+      "logo": "https://via.placeholder.com/150?text=Dsports%20%2B",
+      "category": "DSports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tntsportschile",
+      "name": "TNT Sports Chile",
+      "logo": "https://via.placeholder.com/150?text=TNT%20Sports%20Chile",
+      "category": "TNT Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tntsports",
+      "name": "TNT Sports Argentina",
+      "logo": "https://via.placeholder.com/150?text=TNT%20Sports%20Argentina",
+      "category": "TNT Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espnpremium",
+      "name": "ESPN Premium Argentina",
+      "logo": "https://via.placeholder.com/150?text=ESPN%20Premium%20Argentina",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tycsports",
+      "name": "TyC Sports",
+      "logo": "https://via.placeholder.com/150?text=TyC%20Sports",
+      "category": "TyC Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "telefe",
+      "name": "Telefe",
+      "logo": "https://via.placeholder.com/150?text=Telefe",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tv_publica",
+      "name": "TV Pública",
+      "logo": "https://via.placeholder.com/150?text=TV%20P%C3%BAblica",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "liga1max",
+      "name": "Liga 1 MAX",
+      "logo": "https://via.placeholder.com/150?text=Liga%201%20MAX",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "goltv",
+      "name": "GolTV",
+      "logo": "https://via.placeholder.com/150?text=GolTV",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "vtvplus",
+      "name": "VTV +",
+      "logo": "https://via.placeholder.com/150?text=VTV%20%2B",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espndeportes",
+      "name": "ESPN Deportes USA",
+      "logo": "https://via.placeholder.com/150?text=ESPN%20Deportes%20USA",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tudn_usa",
+      "name": "TUDN USA",
+      "logo": "https://via.placeholder.com/150?text=TUDN%20USA",
+      "category": "USA",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox_1_usa",
+      "name": "Fox Sports 1 USA",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%201%20USA",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox_2_usa",
+      "name": "Fox Sports 2 USA",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%202%20USA",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "universo_usa",
+      "name": "Universo USA",
+      "logo": "https://via.placeholder.com/150?text=Universo%20USA",
+      "category": "USA",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "univision_usa",
+      "name": "Univisíon USA",
+      "logo": "https://via.placeholder.com/150?text=Univis%C3%ADon%20USA",
+      "category": "USA",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox_deportes_usa",
+      "name": "Fox Deportes USA",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Deportes%20USA",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "azteca7",
+      "name": "Azteca 7 MX",
+      "logo": "https://via.placeholder.com/150?text=Azteca%207%20MX",
+      "category": "México",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "foxsportsmx",
+      "name": "Fox Sports 1 MX",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%201%20MX",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "foxsports2mx",
+      "name": "Fox Sports 2 MX",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%202%20MX",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "foxsports3mx",
+      "name": "Fox Sports 3 MX",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%203%20MX",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "foxsportspremium",
+      "name": "Fox Sports Premium",
+      "logo": "https://via.placeholder.com/150?text=Fox%20Sports%20Premium",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espnmx",
+      "name": "ESPN MX",
+      "logo": "https://via.placeholder.com/150?text=ESPN%20MX",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn2mx",
+      "name": "ESPN 2 MX",
+      "logo": "https://via.placeholder.com/150?text=ESPN%202%20MX",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn3mx",
+      "name": "ESPN 3 MX",
+      "logo": "https://via.placeholder.com/150?text=ESPN%203%20MX",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tnt_1_gb",
+      "name": "TNT 1 GB",
+      "logo": "https://via.placeholder.com/150?text=TNT%201%20GB",
+      "category": "TNT Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tnt_2_gb",
+      "name": "TNT 2 GB",
+      "logo": "https://via.placeholder.com/150?text=TNT%202%20GB",
+      "category": "TNT Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tnt_3_gb",
+      "name": "TNT 3 GB",
+      "logo": "https://via.placeholder.com/150?text=TNT%203%20GB",
+      "category": "TNT Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tnt_4_gb",
+      "name": "TNT 4 GB",
+      "logo": "https://via.placeholder.com/150?text=TNT%204%20GB",
+      "category": "TNT Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "sporttvbr1",
+      "name": "Sport TV 1 BR",
+      "logo": "https://via.placeholder.com/150?text=Sport%20TV%201%20BR",
+      "category": "Brasil",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "sporttvbr2",
+      "name": "Sport TV 2 BR",
+      "logo": "https://via.placeholder.com/150?text=Sport%20TV%202%20BR",
+      "category": "Brasil",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "sporttvbr3",
+      "name": "Sport TV 3 BR",
+      "logo": "https://via.placeholder.com/150?text=Sport%20TV%203%20BR",
+      "category": "Brasil",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "premiere1",
+      "name": "Premiere 1 BR",
+      "logo": "https://via.placeholder.com/150?text=Premiere%201%20BR",
+      "category": "Brasil",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "premiere2",
+      "name": "Premiere 2 BR",
+      "logo": "https://via.placeholder.com/150?text=Premiere%202%20BR",
+      "category": "Brasil",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "premiere3",
+      "name": "Premiere 3 BR",
+      "logo": "https://via.placeholder.com/150?text=Premiere%203%20BR",
+      "category": "Brasil",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn_nl1",
+      "name": "ESPN 1 NL",
+      "logo": "https://via.placeholder.com/150?text=ESPN%201%20NL",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn_nl2",
+      "name": "ESPN 2 NL",
+      "logo": "https://via.placeholder.com/150?text=ESPN%202%20NL",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "espn_nl3",
+      "name": "ESPN 3 NL",
+      "logo": "https://via.placeholder.com/150?text=ESPN%203%20NL",
+      "category": "ESPN",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "foxone",
+      "name": "Fox ONE MX",
+      "logo": "https://via.placeholder.com/150?text=Fox%20ONE%20MX",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "fox",
+      "name": "Fox MX",
+      "logo": "https://via.placeholder.com/150?text=Fox%20MX",
+      "category": "Fox Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "usa_network",
+      "name": "USA Network",
+      "logo": "https://via.placeholder.com/150?text=USA%20Network",
+      "category": "USA",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tycinternacional",
+      "name": "TyC Sports Internacional",
+      "logo": "https://via.placeholder.com/150?text=TyC%20Sports%20Internacional",
+      "category": "TyC Sports",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "canal5mx",
+      "name": "Canal 5 MX",
+      "logo": "https://via.placeholder.com/150?text=Canal%205%20MX",
+      "category": "México",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tudnmx",
+      "name": "TUDN MX",
+      "logo": "https://via.placeholder.com/150?text=TUDN%20MX",
+      "category": "USA",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "futv",
+      "name": "FUTV (Eventos)",
+      "logo": "https://via.placeholder.com/150?text=FUTV%20(Eventos)",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "laligahypermotion",
+      "name": "LaLiga Hypermotion",
+      "logo": "https://via.placeholder.com/150?text=LaLiga%20Hypermotion",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    },
+    {
+      "id": "tigosportsparaguay",
+      "name": "Tigo Sports Paraguay (Eventos)",
+      "logo": "https://via.placeholder.com/150?text=Tigo%20Sports%20Paraguay%20(Eventos)",
+      "category": "Deportes",
+      "provider": "streamtp10"
+    }
+  ]
+}
