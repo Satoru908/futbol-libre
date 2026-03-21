@@ -4,8 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 const env = require('../config/env');
-const m3u8ProxyService = require('../services/m3u8-proxy.service');
-const { CORS_PROXIES } = require('../config/proxy.config');
+const streamtpProvider = require('../providers/streamtpnew.provider');
 
 // Cache para datos de agenda y canales
 let agendaCache = null;
@@ -60,7 +59,8 @@ router.get('/health', (req, res) => {
     ok: true, 
     service: 'futbol-libre-api', 
     timestamp: Date.now(),
-    architecture: 'Railway (M3U8) → Vercel (caché) → Hugging Face (descarga)',
+    architecture: 'Railway (API + M3U8) → Usuario (descarga directa de streameasthd.net)',
+    provider: 'streamtpnew.com',
     environment: env.NODE_ENV
   });
 });
@@ -127,18 +127,18 @@ router.get('/channels', (req, res) => {
 });
 
 /**
- * Endpoint simple para obtener URL directa del provider
+ * Endpoint para obtener URL M3U8 directa de streamtpnew.com
  * 
- * GET /api/stream-provider-url?stream=espn
+ * GET /api/stream-url?stream=espn
  * 
  * Respuesta:
  * {
  *   "streamId": "espn",
- *   "url": "https://la14hd.com/vivo/canales.php?stream=espn",
- *   "provider": "la14hd"
+ *   "m3u8Url": "https://24a1.streameasthd.net:443/global/espn/index.m3u8?token=...",
+ *   "provider": "streamtpnew.com"
  * }
  */
-router.get('/stream-provider-url', (req, res) => {
+router.get('/stream-url', async (req, res) => {
   try {
     const { stream } = req.query;
     
@@ -146,186 +146,31 @@ router.get('/stream-provider-url', (req, res) => {
       return res.status(400).json({ error: 'Parámetro stream requerido' });
     }
 
-    // URL del provider desde variables de entorno
-    const baseUrl = env.PROVIDER_BASE_URL;
-    const url = `${baseUrl}?stream=${encodeURIComponent(stream)}`;
+    logger.info(`[API] Obteniendo M3U8 para stream: ${stream}`);
     
-    logger.info(`Devolviendo URL directa para stream: ${stream} (provider: ${baseUrl})`);
-    
-    res.json({
-      streamId: stream,
-      url: url,
-      provider: 'la14hd',
-      timestamp: Date.now()
-    });
-
-  } catch (error) {
-    logger.error('Error en /stream-provider-url:', error.message);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-router.get('/m3u8-direct', async (req, res) => {
-  try {
-    const { stream } = req.query;
-    
-    if (!stream) {
-      return res.status(400).json({ error: 'Parámetro stream requerido' });
-    }
-
-    // Si hay RENDER_PROXY_URL configurado, usar Render para obtener M3U8 con tokens frescos
-    const renderProxyUrl = process.env.RENDER_PROXY_URL;
-    
-    if (renderProxyUrl) {
-      // Render obtiene tokens frescos y sirve todo
-      const m3u8Url = `${renderProxyUrl}/m3u8?stream=${encodeURIComponent(stream)}`;
-      
-      logger.info(`[m3u8-direct] Using Render proxy: ${m3u8Url}`);
-      
-      res.set({
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, OPTIONS',
-        'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
-      });
-
-      return res.json({
-        success: true,
-        streamId: stream,
-        m3u8Url: m3u8Url,
-        architecture: 'Railway (API) → Render (M3U8 + Segments) → fubohd.com',
-        timestamp: Date.now()
-      });
-    }
-
-    // Fallback: Railway obtiene M3U8 y lo modifica (arquitectura anterior)
-    const baseUrl = env.PROVIDER_BASE_URL;
-    const providerUrl = `${baseUrl}?stream=${encodeURIComponent(stream)}`;
-    
-    const m3u8Url = await m3u8ProxyService.extractM3U8Url(providerUrl);
+    // Obtener M3U8 URL de streamtpnew.com
+    const m3u8Url = await streamtpProvider.getM3U8Url(stream);
     
     res.set({
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept'
     });
-
-    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-    const host = req.get('host');
     
-    logger.info(`[m3u8-direct] Protocol: ${protocol}, Host: ${host}, x-forwarded-proto: ${req.get('x-forwarded-proto')}`);
-    
-    const proxyUrl = `${protocol}://${host}/api/m3u8-proxy?url=${encodeURIComponent(m3u8Url)}`;
-
     res.json({
       success: true,
       streamId: stream,
-      m3u8Url: proxyUrl,
-      architecture: 'Railway (Full)',
+      m3u8Url: m3u8Url,
+      provider: 'streamtpnew.com',
+      architecture: 'Usuario descarga directamente de streameasthd.net',
+      tokenValidity: '15 horas',
       timestamp: Date.now()
     });
 
   } catch (error) {
-    logger.error('Error en /m3u8-direct:', error.message);
+    logger.error('Error en /stream-url:', error.message);
     res.status(500).json({ 
-      error: 'Error extrayendo M3U8',
-      message: error.message 
-    });
-  }
-});
-
-// Sistema de rotación de proxies para evitar rate limits
-// Los proxies se configuran en config/proxy.config.js
-let proxyIndex = 0;
-
-function getNextProxy() {
-  const proxy = CORS_PROXIES[proxyIndex];
-  proxyIndex = (proxyIndex + 1) % CORS_PROXIES.length;
-  return proxy;
-}
-
-router.get('/m3u8-proxy', async (req, res) => {
-  try {
-    const { url } = req.query;
-    
-    if (!url) {
-      return res.status(400).json({ error: 'Parámetro url requerido' });
-    }
-
-    const content = await m3u8ProxyService.proxyM3U8Content(url);
-    
-    // ARQUITECTURA HÍBRIDA: Railway → Hugging Face → Vercel → Usuarios
-    // Hugging Face descarga de fubohd.com, Vercel redistribuye
-    const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
-    
-    // URL de Hugging Face (descarga .ts de fubohd.com)
-    const hfProxyUrl = process.env.HF_PROXY_URL 
-      ? `${process.env.HF_PROXY_URL}/proxy`
-      : null;
-    
-    // URL de Vercel CDN (opcional, para caché adicional)
-    const vercelCdnUrl = process.env.VERCEL_PROXY_URL 
-      ? `${process.env.VERCEL_PROXY_URL}/api/proxy`
-      : null;
-    
-    logger.info(`[M3U8-PROXY] HF_PROXY_URL: ${process.env.HF_PROXY_URL || 'NOT SET'}`);
-    logger.info(`[M3U8-PROXY] VERCEL_PROXY_URL: ${process.env.VERCEL_PROXY_URL || 'NOT SET'}`);
-    logger.info(`[M3U8-PROXY] Using: ${vercelCdnUrl ? 'Vercel' : hfProxyUrl ? 'HF' : 'Railway direct'}`);
-    
-    const protocol = req.get('x-forwarded-proto') || req.protocol || 'https';
-    const host = req.get('host');
-    
-    let segmentIndex = 0;
-    const modifiedContent = content.replace(
-      /^(?!#)(.+\.ts.*)$/gm,
-      (match) => {
-        segmentIndex++;
-        // Convertir URLs relativas a absolutas
-        const fullUrl = match.startsWith('http') ? match : baseUrl + match;
-        
-        // Arquitectura: Railway → Vercel → Hugging Face → fubohd.com
-        // Railway apunta a Vercel (CDN que cachea)
-        // Vercel obtiene de Hugging Face (si no está en caché)
-        // Hugging Face descarga de fubohd.com (si no está en caché)
-        
-        if (vercelCdnUrl) {
-          // Railway apunta a Vercel (Vercel obtendrá de HF internamente)
-          return `${vercelCdnUrl}?url=${encodeURIComponent(fullUrl)}`;
-        } else if (hfProxyUrl) {
-          // Fallback: Railway apunta directo a Hugging Face
-          return `${hfProxyUrl}?url=${encodeURIComponent(fullUrl)}`;
-        } else {
-          // Railway directo (sin CDN)
-          return `${protocol}://${host}/api/segment-proxy?url=${encodeURIComponent(fullUrl)}`;
-        }
-      }
-    );
-    
-    // Determinar arquitectura
-    let architecture = 'Railway → Users';
-    if (vercelCdnUrl && hfProxyUrl) {
-      architecture = 'Railway (M3U8) → Vercel (caché) → Hugging Face (descarga) → fubohd.com';
-    } else if (vercelCdnUrl) {
-      architecture = 'Railway → Vercel CDN → Users';
-    } else if (hfProxyUrl) {
-      architecture = 'Railway (M3U8) → Hugging Face (descarga) → Users';
-    }
-    
-    logger.info(`M3U8 modificado con ${segmentIndex} segmentos (${architecture})`);
-    
-    res.set({
-      'Content-Type': 'application/vnd.apple.mpegurl',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept',
-      'Cache-Control': 'no-cache'
-    });
-
-    res.send(modifiedContent);
-
-  } catch (error) {
-    logger.error('Error en /m3u8-proxy:', error.message);
-    res.status(500).json({ 
-      error: 'Error obteniendo M3U8',
+      error: 'Error obteniendo stream',
       message: error.message 
     });
   }

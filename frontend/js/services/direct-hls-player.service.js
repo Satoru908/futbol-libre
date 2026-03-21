@@ -12,7 +12,7 @@ export class DirectHLSPlayerService {
       console.log('[DirectHLS] Iniciando carga del stream:', streamId);
       await this._ensureHlsLoaded();
 
-      const apiUrl = `${APP_CONFIG.apiBaseUrl}/api/m3u8-direct?stream=${encodeURIComponent(streamId)}`;
+      const apiUrl = `${APP_CONFIG.apiBaseUrl}/api/stream-url?stream=${encodeURIComponent(streamId)}`;
       console.log('[DirectHLS] Solicitando M3U8 desde:', apiUrl);
       
       const response = await fetch(apiUrl);
@@ -29,6 +29,8 @@ export class DirectHLSPlayerService {
       }
 
       console.log('[DirectHLS] URL del M3U8:', data.m3u8Url);
+      console.log('[DirectHLS] Provider:', data.provider);
+      console.log('[DirectHLS] Arquitectura:', data.architecture);
       this._createVideoPlayer(data.m3u8Url);
 
     } catch (error) {
