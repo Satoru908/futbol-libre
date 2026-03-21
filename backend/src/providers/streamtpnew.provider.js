@@ -154,9 +154,13 @@ async function getM3U8Url(stream) {
       throw new Error('URL decodificada inválida');
     }
 
-    logger.info(`[STREAMTP] ✅ M3U8 obtenido exitosamente: ${m3u8Url.substring(0, 80)}...`);
+    // Remover el parámetro &ip= porque el token valida la IP del cliente
+    // El usuario debe acceder con su propia IP, no la de Railway
+    const cleanUrl = m3u8Url.replace(/&ip=[^&]+/, '');
+
+    logger.info(`[STREAMTP] ✅ M3U8 obtenido exitosamente: ${cleanUrl.substring(0, 80)}...`);
     
-    return m3u8Url;
+    return cleanUrl;
 
   } catch (error) {
     logger.error(`[STREAMTP] Error obteniendo M3U8: ${error.message}`);
