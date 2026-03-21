@@ -10,10 +10,9 @@ export class DirectHLSPlayerService {
   async load(streamId) {
     try {
       console.log('[DirectHLS] Iniciando carga del stream:', streamId);
-      await this._ensureHlsLoaded();
 
       const apiUrl = `${APP_CONFIG.apiBaseUrl}/api/stream-url?stream=${encodeURIComponent(streamId)}`;
-      console.log('[DirectHLS] Solicitando M3U8 desde:', apiUrl);
+      console.log('[DirectHLS] Solicitando stream desde:', apiUrl);
       
       const response = await fetch(apiUrl);
       
@@ -24,14 +23,21 @@ export class DirectHLSPlayerService {
       const data = await response.json();
       console.log('[DirectHLS] Respuesta del API:', data);
       
-      if (!data.m3u8Url) {
-        throw new Error('No se obtuvo URL M3U8');
+      // Verificar si es iframe o HLS
+      if (data.playerType === 'iframe' && data.iframeUrl) {
+        console.log('[DirectHLS] Usando reproductor iframe');
+        console.log('[DirectHLS] URL del iframe:', data.iframeUrl);
+        console.log('[DirectHLS] Provider:', data.provider);
+        this._createIframePlayer(data.iframeUrl);
+      } else if (data.m3u8Url) {
+        console.log('[DirectHLS] Usando reproductor HLS');
+        console.log('[DirectHLS] URL del M3U8:', data.m3u8Url);
+        console.log('[DirectHLS] Provider:', data.provider);
+        await this._ensureHlsLoaded();
+        this._createVideoPlayer(data.m3u8Url);
+      } else {
+        throw new Error('No se obtuvo URL de stream (ni iframe ni M3U8)');
       }
-
-      console.log('[DirectHLS] URL del M3U8:', data.m3u8Url);
-      console.log('[DirectHLS] Provider:', data.provider);
-      console.log('[DirectHLS] Arquitectura:', data.architecture);
-      this._createVideoPlayer(data.m3u8Url);
 
     } catch (error) {
       console.error('[DirectHLS] Error:', error);
@@ -56,6 +62,20 @@ export class DirectHLSPlayerService {
       script.onerror = () => reject(new Error('No se pudo cargar HLS.js'));
       document.head.appendChild(script);
     });
+  }
+
+  _createIframePlayer(iframeUrl) {
+    console.log('[DirectHLS] Creando reproductor iframe...');
+    
+    const iframe = document.createElement('iframe');
+    iframe.src = iframeUrl;
+    iframe.style.cssText = 'width: 100%; height: 100%; border: none; background: #000;';
+    iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
+    iframe.allowFullscreen = true;
+    // NO usar sandbox - bolaloca.my lo detecta y bloquea
+    
+    this.container.appendChild(iframe);
+    console.log('[DirectHLS] Iframe agregado al DOM');
   }
 
   _createVideoPlayer(m3u8Url) {
@@ -166,5 +186,8 @@ export class DirectHLSPlayerService {
       this.video.remove();
       this.video = null;
     }
+    // Limpiar iframes también
+    const iframes = this.container.querySelectorAll('iframe');
+    iframes.forEach(iframe => iframe.remove());
   }
 }
