@@ -5,8 +5,8 @@ class M3U8ProxyService {
   constructor() {
     this.headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://la14hd.com/',
-      'Origin': 'https://la14hd.com',
+      'Referer': 'https://streamtp10.com/',
+      'Origin': 'https://streamtp10.com',
       'Accept': '*/*'
     };
   }

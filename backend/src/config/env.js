@@ -8,10 +8,10 @@ module.exports = {
   // CORS
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS || '*',
   
-  // Provider Configuration (la14hd.com)
-  PROVIDER_BASE_URL: process.env.PROVIDER_BASE_URL || 'https://la14hd.com/vivo/canales.php',
+  // Provider Configuration (streamtp10.com)
+  PROVIDER_BASE_URL: process.env.PROVIDER_BASE_URL || 'https://streamtp10.com/global1.php',
   PROVIDER_USER_AGENT: process.env.PROVIDER_USER_AGENT || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  PROVIDER_REFERER: process.env.PROVIDER_REFERER || 'https://la14hd.com/',
+  PROVIDER_REFERER: process.env.PROVIDER_REFERER || 'https://streamtp10.com/',
   
   // Cache
   CACHE_TTL: parseInt(process.env.CACHE_TTL || '60000', 10), // ms

@@ -198,9 +198,9 @@ class HlsStreamResolver {
      */
     _getDefaultHeaders() {
         return {
-            'Referer': 'https://la14hd.com/',
+            'Referer': 'https://streamtp10.com/',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Origin': 'https://la14hd.com'
+            'Origin': 'https://streamtp10.com'
         };
     }
 

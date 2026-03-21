@@ -11,12 +11,12 @@ async function scrapeAgenda() {
   try {
     logger.info('Iniciando descarga de agenda JSON');
     
-    const url = 'https://la14hd.com/eventos/json/agenda123.json';
+    const url = 'https://streamtpnew.com/eventos.json';
     
     const { data } = await axios.get(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://la14hd.com/eventos/'
+        'Referer': 'https://streamtpnew.com/'
       },
       timeout: 10000 
     });
