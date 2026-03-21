@@ -1,10 +1,14 @@
 import { APP_CONFIG } from '../config/constants.js';
+import { initAntiRedirect } from '../utils/anti-redirect.js';
 
 export class DirectHLSPlayerService {
   constructor(containerElement) {
     this.container = containerElement;
     this.video = null;
     this.hls = null;
+    this.currentPlayer = 'capo'; // Player por defecto
+    this.currentChannelId = null;
+    this.antiRedirectCleanup = null;
   }
 
   async load(streamId) {
@@ -23,11 +27,21 @@ export class DirectHLSPlayerService {
       const data = await response.json();
       console.log('[DirectHLS] Respuesta del API:', data);
       
+      // Guardar el ID del canal para el selector de players
+      this.currentChannelId = data.channelNumber || streamId;
+      
       // Verificar si es iframe o HLS
       if (data.playerType === 'iframe' && data.iframeUrl) {
         console.log('[DirectHLS] Usando reproductor iframe');
         console.log('[DirectHLS] URL del iframe:', data.iframeUrl);
         console.log('[DirectHLS] Provider:', data.provider);
+        
+        // Activar protección anti-redirect
+        if (!this.antiRedirectCleanup) {
+          this.antiRedirectCleanup = initAntiRedirect();
+          console.log('[DirectHLS] ✅ Protección anti-redirect activada');
+        }
+        
         this._createIframePlayer(data.iframeUrl);
       } else if (data.m3u8Url) {
         console.log('[DirectHLS] Usando reproductor HLS');
@@ -67,15 +81,222 @@ export class DirectHLSPlayerService {
   _createIframePlayer(iframeUrl) {
     console.log('[DirectHLS] Creando reproductor iframe...');
     
+    // Crear contenedor principal
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column;';
+    
+    // Selector de players
+    const playerSelector = this._createPlayerSelector();
+    
+    // Banner informativo arriba del video
+    const infoBanner = document.createElement('div');
+    infoBanner.style.cssText = `
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 20px;
+      text-align: center;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      animation: slideDown 0.5s ease-out;
+    `;
+    infoBanner.innerHTML = `
+      <span style="font-size: 20px;">🔊</span>
+      <span>Haz click en <strong>"UNMUTE"</strong> o <strong>"CLICK HERE TO UNMUTE"</strong> para activar el audio</span>
+    `;
+    
+    // Agregar animación
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes slideDown {
+        from { transform: translateY(-100%); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    `;
+    if (!document.querySelector('style[data-iframe-banner]')) {
+      style.setAttribute('data-iframe-banner', 'true');
+      document.head.appendChild(style);
+    }
+    
+    // Botón para cerrar el banner
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = `
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      margin-left: auto;
+    `;
+    closeBtn.onmouseover = () => {
+      closeBtn.style.background = 'rgba(255,255,255,0.3)';
+      closeBtn.style.transform = 'scale(1.1)';
+    };
+    closeBtn.onmouseout = () => {
+      closeBtn.style.background = 'rgba(255,255,255,0.2)';
+      closeBtn.style.transform = 'scale(1)';
+    };
+    closeBtn.onclick = () => {
+      infoBanner.style.animation = 'slideUp 0.3s ease-out';
+      setTimeout(() => infoBanner.remove(), 300);
+    };
+    
+    // Agregar animación de cierre
+    const closeStyle = document.createElement('style');
+    closeStyle.textContent = `
+      @keyframes slideUp {
+        from { transform: translateY(0); opacity: 1; }
+        to { transform: translateY(-100%); opacity: 0; }
+      }
+    `;
+    if (!document.querySelector('style[data-iframe-close]')) {
+      closeStyle.setAttribute('data-iframe-close', 'true');
+      document.head.appendChild(closeStyle);
+    }
+    
+    infoBanner.appendChild(closeBtn);
+    
+    // Auto-cerrar después de 8 segundos
+    setTimeout(() => {
+      if (infoBanner.parentElement) {
+        infoBanner.style.animation = 'slideUp 0.3s ease-out';
+        setTimeout(() => infoBanner.remove(), 300);
+      }
+    }, 8000);
+    
+    // Contenedor del iframe con capa protectora
+    const iframeContainer = document.createElement('div');
+    iframeContainer.style.cssText = 'position: relative; flex: 1; background: #000;';
+    
+    // Iframe del video
     const iframe = document.createElement('iframe');
     iframe.src = iframeUrl;
     iframe.style.cssText = 'width: 100%; height: 100%; border: none; background: #000;';
     iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
     iframe.allowFullscreen = true;
-    // NO usar sandbox - bolaloca.my lo detecta y bloquea
     
-    this.container.appendChild(iframe);
-    console.log('[DirectHLS] Iframe agregado al DOM');
+    // Capa transparente protectora (cubre 25% superior donde están los anuncios)
+    const protectiveLayer = document.createElement('div');
+    protectiveLayer.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 25%;
+      z-index: 10;
+      pointer-events: auto;
+      background: transparent;
+    `;
+    protectiveLayer.title = 'Área protegida contra anuncios';
+    
+    iframeContainer.appendChild(iframe);
+    iframeContainer.appendChild(protectiveLayer);
+    
+    wrapper.appendChild(playerSelector);
+    wrapper.appendChild(infoBanner);
+    wrapper.appendChild(iframeContainer);
+    this.container.appendChild(wrapper);
+    
+    console.log('[DirectHLS] Iframe con protección anti-anuncios agregado al DOM');
+  }
+
+  _createPlayerSelector() {
+    const selector = document.createElement('div');
+    selector.style.cssText = `
+      background: rgba(59, 85, 109, 0.5);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(95, 194, 186, 0.3);
+      border-radius: 8px;
+      padding: 10px 15px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    `;
+    
+    const label = document.createElement('span');
+    label.textContent = 'Player:';
+    label.style.cssText = 'color: white; font-weight: 600; font-size: 14px;';
+    
+    const players = [
+      { id: 'capo', name: 'Capo' },
+      { id: '1', name: 'Player 1' },
+      { id: '2', name: 'Player 2' },
+      { id: '3', name: 'Player 3' }
+    ];
+    
+    selector.appendChild(label);
+    
+    players.forEach(player => {
+      const btn = document.createElement('button');
+      btn.textContent = player.name;
+      btn.style.cssText = `
+        background: ${this.currentPlayer === player.id ? '#5FC2BA' : 'rgba(95, 194, 186, 0.2)'};
+        border: 1px solid ${this.currentPlayer === player.id ? '#5FC2BA' : 'rgba(95, 194, 186, 0.3)'};
+        color: white;
+        padding: 6px 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: all 0.2s;
+      `;
+      
+      btn.onmouseover = () => {
+        if (this.currentPlayer !== player.id) {
+          btn.style.background = 'rgba(95, 194, 186, 0.4)';
+        }
+      };
+      
+      btn.onmouseout = () => {
+        if (this.currentPlayer !== player.id) {
+          btn.style.background = 'rgba(95, 194, 186, 0.2)';
+        }
+      };
+      
+      btn.onclick = () => {
+        if (this.currentPlayer !== player.id) {
+          this.currentPlayer = player.id;
+          this._switchPlayer(player.id);
+        }
+      };
+      
+      selector.appendChild(btn);
+    });
+    
+    return selector;
+  }
+
+  _switchPlayer(playerId) {
+    console.log(`[DirectHLS] Cambiando a player: ${playerId}`);
+    
+    if (!this.currentChannelId) {
+      console.error('[DirectHLS] No hay canal cargado');
+      return;
+    }
+    
+    // Limpiar contenedor
+    this.destroy();
+    
+    // Crear nueva URL con el player seleccionado
+    const newUrl = `https://bolaloca.my/player/${playerId}/${this.currentChannelId}`;
+    console.log('[DirectHLS] Nueva URL:', newUrl);
+    
+    // Recargar con el nuevo player
+    this._createIframePlayer(newUrl);
   }
 
   _createVideoPlayer(m3u8Url) {
@@ -185,6 +406,10 @@ export class DirectHLSPlayerService {
     if (this.video) {
       this.video.remove();
       this.video = null;
+    }
+    if (this.antiRedirectCleanup) {
+      this.antiRedirectCleanup();
+      this.antiRedirectCleanup = null;
     }
     // Limpiar todo el contenedor
     while (this.container.firstChild) {
