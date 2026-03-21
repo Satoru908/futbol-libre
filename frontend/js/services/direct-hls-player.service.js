@@ -13,48 +13,66 @@ export class DirectHLSPlayerService {
 
   async load(streamId) {
     try {
-      console.log('[DirectHLS] Iniciando carga del stream:', streamId);
+      console.log('[DirectHLS] 🚀 Iniciando carga del stream:', streamId);
 
       const apiUrl = `${APP_CONFIG.apiBaseUrl}/api/stream-url?stream=${encodeURIComponent(streamId)}`;
-      console.log('[DirectHLS] Solicitando stream desde:', apiUrl);
+      console.log('[DirectHLS] 📡 Solicitando stream desde:', apiUrl);
       
       const response = await fetch(apiUrl);
+      console.log('[DirectHLS] 📥 Respuesta recibida, status:', response.status);
       
       if (!response.ok) {
         throw new Error(`Error API: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
-      console.log('[DirectHLS] Respuesta del API:', data);
+      console.log('[DirectHLS] 📦 Datos parseados:', JSON.stringify(data, null, 2));
       
       // Guardar el ID del canal para el selector de players
       this.currentChannelId = data.channelNumber || streamId;
+      console.log('[DirectHLS] 💾 Canal ID guardado:', this.currentChannelId);
       
       // Verificar si es iframe o HLS
       if (data.playerType === 'iframe' && data.iframeUrl) {
-        console.log('[DirectHLS] Usando reproductor iframe');
-        console.log('[DirectHLS] URL del iframe:', data.iframeUrl);
-        console.log('[DirectHLS] Provider:', data.provider);
+        console.log('[DirectHLS] 🎬 Modo: IFRAME');
+        console.log('[DirectHLS] 🔗 URL del iframe:', data.iframeUrl);
+        console.log('[DirectHLS] 🏢 Provider:', data.provider);
         
         // Activar protección anti-redirect
         if (!this.antiRedirectCleanup) {
+          console.log('[DirectHLS] 🛡️ Activando protección anti-redirect...');
           this.antiRedirectCleanup = initAntiRedirect();
           console.log('[DirectHLS] ✅ Protección anti-redirect activada');
+        } else {
+          console.log('[DirectHLS] ℹ️ Protección anti-redirect ya estaba activa');
         }
         
+        console.log('[DirectHLS] 🎨 Creando player iframe...');
         this._createIframePlayer(data.iframeUrl);
+        console.log('[DirectHLS] ✅ Player iframe creado');
+        
       } else if (data.m3u8Url) {
-        console.log('[DirectHLS] Usando reproductor HLS');
-        console.log('[DirectHLS] URL del M3U8:', data.m3u8Url);
-        console.log('[DirectHLS] Provider:', data.provider);
+        console.log('[DirectHLS] 🎬 Modo: HLS');
+        console.log('[DirectHLS] 🔗 URL del M3U8:', data.m3u8Url);
+        console.log('[DirectHLS] 🏢 Provider:', data.provider);
+        
+        console.log('[DirectHLS] 📚 Cargando librería HLS.js...');
         await this._ensureHlsLoaded();
+        console.log('[DirectHLS] ✅ HLS.js cargado');
+        
+        console.log('[DirectHLS] 🎨 Creando player de video...');
         this._createVideoPlayer(data.m3u8Url);
+        console.log('[DirectHLS] ✅ Player de video creado');
+        
       } else {
+        console.error('[DirectHLS] ❌ No se obtuvo URL de stream');
+        console.error('[DirectHLS] 📦 Datos recibidos:', data);
         throw new Error('No se obtuvo URL de stream (ni iframe ni M3U8)');
       }
 
     } catch (error) {
-      console.error('[DirectHLS] Error:', error);
+      console.error('[DirectHLS] ❌ Error en load():', error);
+      console.error('[DirectHLS] 📚 Stack trace:', error.stack);
       throw error;
     }
   }
@@ -79,16 +97,22 @@ export class DirectHLSPlayerService {
   }
 
   _createIframePlayer(iframeUrl) {
-    console.log('[DirectHLS] Creando reproductor iframe...');
+    console.log('[DirectHLS] 🎬 _createIframePlayer() iniciado');
+    console.log('[DirectHLS] 🔗 URL recibida:', iframeUrl);
+    console.log('[DirectHLS] 📦 Container:', this.container);
     
     // Crear contenedor principal
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'width: 100%; height: 100%; display: flex; flex-direction: column;';
+    console.log('[DirectHLS] ✅ Wrapper creado');
     
     // Selector de players
+    console.log('[DirectHLS] 🎛️ Creando selector de players...');
     const playerSelector = this._createPlayerSelector();
+    console.log('[DirectHLS] ✅ Selector de players creado');
     
     // Banner informativo arriba del video
+    console.log('[DirectHLS] 📢 Creando banner informativo...');
     const infoBanner = document.createElement('div');
     infoBanner.style.cssText = `
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -108,6 +132,7 @@ export class DirectHLSPlayerService {
       <span style="font-size: 20px;">🔊</span>
       <span>Haz click en <strong>"UNMUTE"</strong> o <strong>"CLICK HERE TO UNMUTE"</strong> para activar el audio</span>
     `;
+    console.log('[DirectHLS] ✅ Banner creado');
     
     // Agregar animación
     const style = document.createElement('style');
@@ -120,6 +145,7 @@ export class DirectHLSPlayerService {
     if (!document.querySelector('style[data-iframe-banner]')) {
       style.setAttribute('data-iframe-banner', 'true');
       document.head.appendChild(style);
+      console.log('[DirectHLS] ✅ Estilos de animación agregados');
     }
     
     // Botón para cerrar el banner
@@ -149,9 +175,14 @@ export class DirectHLSPlayerService {
       closeBtn.style.transform = 'scale(1)';
     };
     closeBtn.onclick = () => {
+      console.log('[DirectHLS] 🗑️ Cerrando banner...');
       infoBanner.style.animation = 'slideUp 0.3s ease-out';
-      setTimeout(() => infoBanner.remove(), 300);
+      setTimeout(() => {
+        infoBanner.remove();
+        console.log('[DirectHLS] ✅ Banner eliminado');
+      }, 300);
     };
+    console.log('[DirectHLS] ✅ Botón de cierre creado');
     
     // Agregar animación de cierre
     const closeStyle = document.createElement('style');
@@ -164,6 +195,7 @@ export class DirectHLSPlayerService {
     if (!document.querySelector('style[data-iframe-close]')) {
       closeStyle.setAttribute('data-iframe-close', 'true');
       document.head.appendChild(closeStyle);
+      console.log('[DirectHLS] ✅ Estilos de cierre agregados');
     }
     
     infoBanner.appendChild(closeBtn);
@@ -171,23 +203,41 @@ export class DirectHLSPlayerService {
     // Auto-cerrar después de 8 segundos
     setTimeout(() => {
       if (infoBanner.parentElement) {
+        console.log('[DirectHLS] ⏱️ Auto-cerrando banner...');
         infoBanner.style.animation = 'slideUp 0.3s ease-out';
-        setTimeout(() => infoBanner.remove(), 300);
+        setTimeout(() => {
+          infoBanner.remove();
+          console.log('[DirectHLS] ✅ Banner auto-cerrado');
+        }, 300);
       }
     }, 8000);
     
     // Contenedor del iframe con capa protectora
+    console.log('[DirectHLS] 📦 Creando contenedor del iframe...');
     const iframeContainer = document.createElement('div');
     iframeContainer.style.cssText = 'position: relative; flex: 1; background: #000;';
+    console.log('[DirectHLS] ✅ Contenedor del iframe creado');
     
     // Iframe del video
+    console.log('[DirectHLS] 🎥 Creando elemento iframe...');
     const iframe = document.createElement('iframe');
     iframe.src = iframeUrl;
     iframe.style.cssText = 'width: 100%; height: 100%; border: none; background: #000;';
     iframe.allow = 'autoplay; fullscreen; encrypted-media; picture-in-picture';
     iframe.allowFullscreen = true;
     
+    iframe.onload = () => {
+      console.log('[DirectHLS] ✅ Iframe cargado completamente');
+    };
+    
+    iframe.onerror = (e) => {
+      console.error('[DirectHLS] ❌ Error cargando iframe:', e);
+    };
+    
+    console.log('[DirectHLS] ✅ Elemento iframe configurado');
+    
     // Capa transparente protectora (cubre 25% superior donde están los anuncios)
+    console.log('[DirectHLS] 🛡️ Creando capa protectora...');
     const protectiveLayer = document.createElement('div');
     protectiveLayer.style.cssText = `
       position: absolute;
@@ -200,19 +250,35 @@ export class DirectHLSPlayerService {
       background: transparent;
     `;
     protectiveLayer.title = 'Área protegida contra anuncios';
+    console.log('[DirectHLS] ✅ Capa protectora creada');
     
+    // Ensamblar todo
+    console.log('[DirectHLS] 🔧 Ensamblando componentes...');
     iframeContainer.appendChild(iframe);
+    console.log('[DirectHLS] ✅ Iframe agregado al contenedor');
+    
     iframeContainer.appendChild(protectiveLayer);
+    console.log('[DirectHLS] ✅ Capa protectora agregada al contenedor');
     
     wrapper.appendChild(playerSelector);
-    wrapper.appendChild(infoBanner);
-    wrapper.appendChild(iframeContainer);
-    this.container.appendChild(wrapper);
+    console.log('[DirectHLS] ✅ Selector agregado al wrapper');
     
-    console.log('[DirectHLS] Iframe con protección anti-anuncios agregado al DOM');
+    wrapper.appendChild(infoBanner);
+    console.log('[DirectHLS] ✅ Banner agregado al wrapper');
+    
+    wrapper.appendChild(iframeContainer);
+    console.log('[DirectHLS] ✅ Contenedor de iframe agregado al wrapper');
+    
+    console.log('[DirectHLS] 🔧 Agregando wrapper al container principal...');
+    this.container.appendChild(wrapper);
+    console.log('[DirectHLS] ✅ Wrapper agregado al DOM');
+    
+    console.log('[DirectHLS] 🎉 _createIframePlayer() completado exitosamente');
   }
 
   _createPlayerSelector() {
+    console.log('[DirectHLS] 🎛️ _createPlayerSelector() iniciado');
+    
     const selector = document.createElement('div');
     selector.style.cssText = `
       background: rgba(59, 85, 109, 0.5);
@@ -226,10 +292,12 @@ export class DirectHLSPlayerService {
       gap: 10px;
       flex-wrap: wrap;
     `;
+    console.log('[DirectHLS] ✅ Contenedor del selector creado');
     
     const label = document.createElement('span');
     label.textContent = 'Player:';
     label.style.cssText = 'color: white; font-weight: 600; font-size: 14px;';
+    console.log('[DirectHLS] ✅ Label creado');
     
     const players = [
       { id: 'capo', name: 'Capo' },
@@ -237,10 +305,14 @@ export class DirectHLSPlayerService {
       { id: '2', name: 'Player 2' },
       { id: '3', name: 'Player 3' }
     ];
+    console.log('[DirectHLS] 📋 Players disponibles:', players);
+    console.log('[DirectHLS] 🎯 Player actual:', this.currentPlayer);
     
     selector.appendChild(label);
     
-    players.forEach(player => {
+    players.forEach((player, index) => {
+      console.log(`[DirectHLS] 🔘 Creando botón ${index + 1}/${players.length}: ${player.name}`);
+      
       const btn = document.createElement('button');
       btn.textContent = player.name;
       btn.style.cssText = `
@@ -268,35 +340,47 @@ export class DirectHLSPlayerService {
       };
       
       btn.onclick = () => {
+        console.log(`[DirectHLS] 👆 Click en botón: ${player.name} (${player.id})`);
         if (this.currentPlayer !== player.id) {
+          console.log(`[DirectHLS] 🔄 Cambiando de player ${this.currentPlayer} → ${player.id}`);
           this.currentPlayer = player.id;
           this._switchPlayer(player.id);
+        } else {
+          console.log(`[DirectHLS] ℹ️ Ya estás usando ${player.name}`);
         }
       };
       
       selector.appendChild(btn);
+      console.log(`[DirectHLS] ✅ Botón ${player.name} agregado`);
     });
     
+    console.log('[DirectHLS] 🎉 _createPlayerSelector() completado');
     return selector;
   }
 
   _switchPlayer(playerId) {
-    console.log(`[DirectHLS] Cambiando a player: ${playerId}`);
+    console.log(`[DirectHLS] 🔄 _switchPlayer() iniciado con playerId: ${playerId}`);
     
     if (!this.currentChannelId) {
-      console.error('[DirectHLS] No hay canal cargado');
+      console.error('[DirectHLS] ❌ No hay canal cargado (currentChannelId es null)');
       return;
     }
     
+    console.log('[DirectHLS] 📺 Canal actual:', this.currentChannelId);
+    
     // Limpiar contenedor
+    console.log('[DirectHLS] 🧹 Limpiando contenedor...');
     this.destroy();
+    console.log('[DirectHLS] ✅ Contenedor limpiado');
     
     // Crear nueva URL con el player seleccionado
     const newUrl = `https://bolaloca.my/player/${playerId}/${this.currentChannelId}`;
-    console.log('[DirectHLS] Nueva URL:', newUrl);
+    console.log('[DirectHLS] 🔗 Nueva URL generada:', newUrl);
     
     // Recargar con el nuevo player
+    console.log('[DirectHLS] 🔄 Recargando con nuevo player...');
     this._createIframePlayer(newUrl);
+    console.log('[DirectHLS] ✅ Player recargado');
   }
 
   _createVideoPlayer(m3u8Url) {
