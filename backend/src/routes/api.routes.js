@@ -143,13 +143,19 @@ router.get('/stream-url', async (req, res) => {
     const { stream } = req.query;
     
     if (!stream) {
-      return res.status(400).json({ error: 'Parámetro stream requerido' });
+      logger.error('[API] stream-url: Parámetro stream faltante');
+      return res.status(400).json({ 
+        error: 'Parámetro stream requerido',
+        example: '/api/stream-url?stream=espn'
+      });
     }
 
-    logger.info(`[API] Obteniendo M3U8 para stream: ${stream}`);
+    logger.info(`[API] stream-url: Obteniendo M3U8 para stream: ${stream}`);
     
     // Obtener M3U8 URL de streamtpnew.com
     const m3u8Url = await streamtpProvider.getM3U8Url(stream);
+    
+    logger.info(`[API] stream-url: ✅ M3U8 obtenido exitosamente`);
     
     res.set({
       'Access-Control-Allow-Origin': '*',
@@ -168,10 +174,40 @@ router.get('/stream-url', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('Error en /stream-url:', error.message);
+    logger.error('[API] stream-url: Error:', error.message);
+    logger.error('[API] stream-url: Stack:', error.stack);
+    
     res.status(500).json({ 
       error: 'Error obteniendo stream',
-      message: error.message 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
+/**
+ * Endpoint de prueba para verificar el provider
+ */
+router.get('/test-provider', async (req, res) => {
+  try {
+    logger.info('[API] test-provider: Probando provider de streamtpnew.com');
+    
+    const testStream = 'espn';
+    const m3u8Url = await streamtpProvider.getM3U8Url(testStream);
+    
+    res.json({
+      success: true,
+      message: 'Provider funcionando correctamente',
+      testStream: testStream,
+      m3u8Url: m3u8Url
+    });
+    
+  } catch (error) {
+    logger.error('[API] test-provider: Error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
     });
   }
 });
