@@ -67,7 +67,7 @@ export class DirectHLSPlayerService {
   _createIframePlayer(iframeUrl) {
     console.log('[DirectHLS] Creando reproductor iframe...');
     
-    // Crear contenedor para iframe + overlay
+    // Crear contenedor para iframe + mensaje
     const iframeWrapper = document.createElement('div');
     iframeWrapper.style.cssText = 'position: relative; width: 100%; height: 100%;';
     
@@ -78,89 +78,60 @@ export class DirectHLSPlayerService {
     iframe.allowFullscreen = true;
     // NO usar sandbox - bolaloca.my lo detecta y bloquea
     
-    // Crear overlay transparente que cubra todo el iframe
-    const overlay = document.createElement('div');
-    overlay.id = 'iframe-overlay';
-    overlay.style.cssText = `
+    // Crear mensaje flotante que NO bloquea el iframe
+    const unmuteMessage = document.createElement('div');
+    unmuteMessage.id = 'unmute-message';
+    unmuteMessage.style.cssText = `
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10;
-      pointer-events: auto;
-      background: transparent;
-    `;
-    
-    // Crear zona clickeable para el botón de unmute (centro-superior del video)
-    const unmuteZone = document.createElement('div');
-    unmuteZone.id = 'unmute-zone';
-    unmuteZone.style.cssText = `
-      position: absolute;
-      top: 10%;
+      top: 15%;
       left: 50%;
       transform: translateX(-50%);
-      width: 300px;
-      height: 80px;
+      width: auto;
+      max-width: 90%;
+      padding: 15px 25px;
       z-index: 11;
-      pointer-events: auto;
-      cursor: pointer;
-      border: 2px dashed rgba(255, 255, 255, 0.5);
-      border-radius: 8px;
+      pointer-events: none;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.85);
       color: white;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: bold;
       text-align: center;
-      padding: 10px;
-      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      animation: fadeInOut 4s ease-in-out;
     `;
-    unmuteZone.innerHTML = '👆 Click aquí para activar audio';
+    unmuteMessage.innerHTML = '🔊 Haz click en "UNMUTE" para activar el audio';
     
-    // Hacer que solo la zona de unmute sea clickeable
-    unmuteZone.addEventListener('mouseenter', () => {
-      unmuteZone.style.background = 'rgba(0, 0, 0, 0.9)';
-      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.8)';
-      unmuteZone.style.transform = 'translateX(-50%) scale(1.05)';
-    });
-    
-    unmuteZone.addEventListener('mouseleave', () => {
-      unmuteZone.style.background = 'rgba(0, 0, 0, 0.7)';
-      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.5)';
-      unmuteZone.style.transform = 'translateX(-50%) scale(1)';
-    });
-    
-    // Cuando se hace click en la zona de unmute, remover overlays
-    unmuteZone.addEventListener('click', (e) => {
-      console.log('[DirectHLS] Click en zona de unmute, removiendo overlays');
-      e.stopPropagation();
-      
-      // Remover overlays inmediatamente para permitir interacción con iframe
-      overlay.remove();
-      unmuteZone.remove();
-      
-      console.log('[DirectHLS] Overlays removidos, iframe completamente interactivo');
-    });
-    
-    // También remover overlay si se hace click fuera de la zona (después de 3 segundos)
-    setTimeout(() => {
-      if (overlay.parentElement) {
-        console.log('[DirectHLS] Auto-removiendo overlay después de 3 segundos');
-        overlay.remove();
-        unmuteZone.remove();
+    // Agregar animación CSS
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
       }
-    }, 3000);
+    `;
+    document.head.appendChild(style);
+    
+    // Remover mensaje automáticamente después de 4 segundos
+    setTimeout(() => {
+      if (unmuteMessage.parentElement) {
+        unmuteMessage.remove();
+        console.log('[DirectHLS] Mensaje de unmute removido');
+      }
+    }, 4000);
     
     // Agregar elementos al DOM
     iframeWrapper.appendChild(iframe);
-    iframeWrapper.appendChild(overlay);
-    iframeWrapper.appendChild(unmuteZone);
+    iframeWrapper.appendChild(unmuteMessage);
     
     this.container.appendChild(iframeWrapper);
-    console.log('[DirectHLS] Iframe con overlay agregado al DOM');
+    console.log('[DirectHLS] Iframe con mensaje agregado al DOM');
   }
 
   _createVideoPlayer(m3u8Url) {
@@ -278,8 +249,8 @@ export class DirectHLSPlayerService {
     const wrappers = this.container.querySelectorAll('div[style*="position: relative"]');
     wrappers.forEach(wrapper => wrapper.remove());
     
-    // Limpiar overlays
-    const overlays = this.container.querySelectorAll('#iframe-overlay, #unmute-zone');
-    overlays.forEach(overlay => overlay.remove());
+    // Limpiar mensajes
+    const messages = this.container.querySelectorAll('#unmute-message');
+    messages.forEach(msg => msg.remove());
   }
 }
