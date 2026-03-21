@@ -128,6 +128,7 @@ router.get('/channels', (req, res) => {
  * Endpoint para obtener URL de iframe de bolaloca.my
  * 
  * GET /api/stream-url?stream=bolaloca_89
+ * GET /api/stream-url?stream=espn3  (mapeo automático)
  * 
  * Respuesta:
  * {
@@ -150,20 +151,81 @@ router.get('/stream-url', async (req, res) => {
 
     logger.info(`[API] stream-url: Obteniendo URL para stream: ${stream}`);
     
-    // Extraer el número de canal de bolaloca
-    const channelMatch = stream.match(/bolaloca_(\d+)/);
+    // Mapeo de IDs antiguos a canales de bolaloca
+    const channelMapping = {
+      // ESPN
+      'espn': 87,
+      'espn2': 88,
+      'espn3': 89,
+      'espn4': 90,
+      'espn5': 91,
+      'espn6': 92,
+      'espn7': 93,
+      // DSports
+      'dsports': 94,
+      'dsports2': 95,
+      'dsportsplus': 96,
+      // Fox Sports Argentina
+      'fox1ar': 78,
+      'fox2ar': 79,
+      'fox3ar': 80,
+      // TNT Sports
+      'tntsports': 75,
+      'tntsportschile': 83,
+      // Win Sports
+      'winplus': 81,
+      'winsports': 82,
+      // TyC Sports
+      'tycsports': 77,
+      // ESPN Premium
+      'espnpremium': 76,
+      // Perú
+      'liga1max': 84,
+      'goltv': 85,
+      // México
+      'espnmx': 97,
+      'espn2mx': 98,
+      'espn3mx': 99,
+      'foxsportsmx': 101,
+      'foxsports2mx': 102,
+      'foxsports3mx': 103,
+      'foxsportspremium': 104,
+      'tudnmx': 106,
+      'canal5mx': 107,
+      'azteca7': 108,
+      // Uruguay
+      'vtvplus': 109,
+      // USA
+      'tudn_usa': 68,
+      'espndeportes': 71,
+      'fox_deportes_usa': 70
+    };
     
-    if (!channelMatch) {
+    let channelNumber;
+    
+    // Verificar si es formato bolaloca_XX
+    const bolalocaMatch = stream.match(/bolaloca_(\d+)/);
+    if (bolalocaMatch) {
+      channelNumber = bolalocaMatch[1];
+    } 
+    // Verificar si es un ID antiguo que necesita mapeo
+    else if (channelMapping[stream]) {
+      channelNumber = channelMapping[stream];
+      logger.info(`[API] stream-url: Mapeando ${stream} → bolaloca_${channelNumber}`);
+    }
+    // Si no coincide con nada, error
+    else {
       return res.status(400).json({
-        error: 'Formato de stream inválido',
-        example: '/api/stream-url?stream=bolaloca_89'
+        error: 'Canal no encontrado',
+        stream: stream,
+        suggestion: 'Use formato bolaloca_XX o un canal conocido',
+        availableChannels: Object.keys(channelMapping)
       });
     }
     
-    const channelNumber = channelMatch[1];
     const iframeUrl = `https://bolaloca.my/player/capo/${channelNumber}`;
     
-    logger.info(`[API] stream-url: ✅ URL de iframe generada`);
+    logger.info(`[API] stream-url: ✅ URL de iframe generada para canal ${channelNumber}`);
     
     res.set({
       'Access-Control-Allow-Origin': '*',
@@ -173,7 +235,8 @@ router.get('/stream-url', async (req, res) => {
     
     res.json({
       success: true,
-      streamId: stream,
+      streamId: `bolaloca_${channelNumber}`,
+      originalStreamId: stream,
       channelNumber: parseInt(channelNumber),
       iframeUrl: iframeUrl,
       provider: 'bolaloca.my',
