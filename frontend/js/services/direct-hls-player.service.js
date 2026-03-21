@@ -67,7 +67,7 @@ export class DirectHLSPlayerService {
   _createIframePlayer(iframeUrl) {
     console.log('[DirectHLS] Creando reproductor iframe...');
     
-    // Crear contenedor para iframe + mensaje
+    // Crear contenedor para iframe + overlays
     const iframeWrapper = document.createElement('div');
     iframeWrapper.style.cssText = 'position: relative; width: 100%; height: 100%;';
     
@@ -78,60 +78,132 @@ export class DirectHLSPlayerService {
     iframe.allowFullscreen = true;
     // NO usar sandbox - bolaloca.my lo detecta y bloquea
     
-    // Crear mensaje flotante que NO bloquea el iframe
-    const unmuteMessage = document.createElement('div');
-    unmuteMessage.id = 'unmute-message';
-    unmuteMessage.style.cssText = `
+    // Crear 4 divs que cubran todo EXCEPTO la zona del botón unmute (centro-superior)
+    // El botón de unmute suele estar en el centro-superior del video
+    
+    // Div superior (cubre desde arriba hasta antes del botón)
+    const topOverlay = document.createElement('div');
+    topOverlay.style.cssText = `
       position: absolute;
-      top: 15%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: auto;
-      max-width: 90%;
-      padding: 15px 25px;
-      z-index: 11;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 8%;
+      background: transparent;
+      z-index: 10;
+      pointer-events: auto;
+      cursor: not-allowed;
+    `;
+    
+    // Div izquierdo (cubre el lado izquierdo a la altura del botón)
+    const leftOverlay = document.createElement('div');
+    leftOverlay.style.cssText = `
+      position: absolute;
+      top: 8%;
+      left: 0;
+      width: 30%;
+      height: 15%;
+      background: transparent;
+      z-index: 10;
+      pointer-events: auto;
+      cursor: not-allowed;
+    `;
+    
+    // Div derecho (cubre el lado derecho a la altura del botón)
+    const rightOverlay = document.createElement('div');
+    rightOverlay.style.cssText = `
+      position: absolute;
+      top: 8%;
+      right: 0;
+      width: 30%;
+      height: 15%;
+      background: transparent;
+      z-index: 10;
+      pointer-events: auto;
+      cursor: not-allowed;
+    `;
+    
+    // Div inferior (cubre desde después del botón hasta abajo)
+    const bottomOverlay = document.createElement('div');
+    bottomOverlay.style.cssText = `
+      position: absolute;
+      top: 23%;
+      left: 0;
+      width: 100%;
+      height: 77%;
+      background: transparent;
+      z-index: 10;
+      pointer-events: auto;
+      cursor: not-allowed;
+    `;
+    
+    // Zona del botón unmute (centro-superior) - SIN overlay, permite clicks
+    // Esta zona queda libre entre los 4 divs
+    const unmuteIndicator = document.createElement('div');
+    unmuteIndicator.style.cssText = `
+      position: absolute;
+      top: 8%;
+      left: 30%;
+      width: 40%;
+      height: 15%;
+      border: 2px dashed rgba(76, 175, 80, 0.8);
+      border-radius: 8px;
+      z-index: 9;
       pointer-events: none;
-      border: 2px solid rgba(255, 255, 255, 0.8);
-      border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.85);
-      color: white;
-      font-size: 16px;
-      font-weight: bold;
-      text-align: center;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      animation: fadeInOut 4s ease-in-out;
+      background: rgba(76, 175, 80, 0.1);
+      animation: pulse 2s infinite;
     `;
-    unmuteMessage.innerHTML = '🔊 Haz click en "UNMUTE" para activar el audio';
     
-    // Agregar animación CSS
+    const unmuteText = document.createElement('div');
+    unmuteText.style.cssText = `
+      background: rgba(0, 0, 0, 0.8);
+      color: #4CAF50;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: bold;
+      pointer-events: none;
+    `;
+    unmuteText.textContent = '👆 CLICK AQUÍ PARA AUDIO';
+    unmuteIndicator.appendChild(unmuteText);
+    
+    // Agregar animación de pulso
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes fadeInOut {
-        0% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
-        10% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        90% { opacity: 1; transform: translateX(-50%) translateY(0); }
-        100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+      @keyframes pulse {
+        0%, 100% { 
+          border-color: rgba(76, 175, 80, 0.8);
+          background: rgba(76, 175, 80, 0.1);
+        }
+        50% { 
+          border-color: rgba(76, 175, 80, 1);
+          background: rgba(76, 175, 80, 0.2);
+        }
       }
     `;
     document.head.appendChild(style);
     
-    // Remover mensaje automáticamente después de 4 segundos
+    // Remover overlays después de 5 segundos (asumiendo que el usuario ya hizo click)
     setTimeout(() => {
-      if (unmuteMessage.parentElement) {
-        unmuteMessage.remove();
-        console.log('[DirectHLS] Mensaje de unmute removido');
-      }
-    }, 4000);
+      [topOverlay, leftOverlay, rightOverlay, bottomOverlay, unmuteIndicator].forEach(el => {
+        if (el.parentElement) el.remove();
+      });
+      console.log('[DirectHLS] Overlays de protección removidos');
+    }, 5000);
     
     // Agregar elementos al DOM
     iframeWrapper.appendChild(iframe);
-    iframeWrapper.appendChild(unmuteMessage);
+    iframeWrapper.appendChild(topOverlay);
+    iframeWrapper.appendChild(leftOverlay);
+    iframeWrapper.appendChild(rightOverlay);
+    iframeWrapper.appendChild(bottomOverlay);
+    iframeWrapper.appendChild(unmuteIndicator);
     
     this.container.appendChild(iframeWrapper);
-    console.log('[DirectHLS] Iframe con mensaje agregado al DOM');
+    console.log('[DirectHLS] Iframe con overlays de protección agregado al DOM');
   }
 
   _createVideoPlayer(m3u8Url) {
@@ -242,15 +314,9 @@ export class DirectHLSPlayerService {
       this.video.remove();
       this.video = null;
     }
-    // Limpiar iframes y wrappers
-    const iframes = this.container.querySelectorAll('iframe');
-    iframes.forEach(iframe => iframe.remove());
-    
-    const wrappers = this.container.querySelectorAll('div[style*="position: relative"]');
-    wrappers.forEach(wrapper => wrapper.remove());
-    
-    // Limpiar mensajes
-    const messages = this.container.querySelectorAll('#unmute-message');
-    messages.forEach(msg => msg.remove());
+    // Limpiar todo el contenedor
+    while (this.container.firstChild) {
+      this.container.removeChild(this.container.firstChild);
+    }
   }
 }
