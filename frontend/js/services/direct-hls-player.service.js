@@ -67,6 +67,10 @@ export class DirectHLSPlayerService {
   _createIframePlayer(iframeUrl) {
     console.log('[DirectHLS] Creando reproductor iframe...');
     
+    // Crear contenedor para iframe + overlay
+    const iframeWrapper = document.createElement('div');
+    iframeWrapper.style.cssText = 'position: relative; width: 100%; height: 100%;';
+    
     const iframe = document.createElement('iframe');
     iframe.src = iframeUrl;
     iframe.style.cssText = 'width: 100%; height: 100%; border: none; background: #000;';
@@ -74,8 +78,77 @@ export class DirectHLSPlayerService {
     iframe.allowFullscreen = true;
     // NO usar sandbox - bolaloca.my lo detecta y bloquea
     
-    this.container.appendChild(iframe);
-    console.log('[DirectHLS] Iframe agregado al DOM');
+    // Crear overlay transparente que cubra todo el iframe
+    const overlay = document.createElement('div');
+    overlay.id = 'iframe-overlay';
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: auto;
+      background: transparent;
+    `;
+    
+    // Crear zona clickeable para el botón de unmute (centro-superior del video)
+    const unmuteZone = document.createElement('div');
+    unmuteZone.id = 'unmute-zone';
+    unmuteZone.style.cssText = `
+      position: absolute;
+      top: 10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 300px;
+      height: 80px;
+      z-index: 11;
+      pointer-events: none;
+      cursor: pointer;
+      border: 2px dashed rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      padding: 10px;
+      transition: all 0.3s ease;
+    `;
+    unmuteZone.innerHTML = '👆 Click aquí para activar audio';
+    
+    // Hacer que solo la zona de unmute sea clickeable
+    unmuteZone.addEventListener('mouseenter', () => {
+      unmuteZone.style.background = 'rgba(0, 0, 0, 0.7)';
+      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+    });
+    
+    unmuteZone.addEventListener('mouseleave', () => {
+      unmuteZone.style.background = 'rgba(0, 0, 0, 0.5)';
+      unmuteZone.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+    });
+    
+    // Cuando se hace click en la zona de unmute, permitir que el click pase al iframe
+    unmuteZone.addEventListener('click', () => {
+      console.log('[DirectHLS] Click en zona de unmute, permitiendo interacción con iframe');
+      // Remover el overlay después de 2 segundos para permitir interacción completa
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        unmuteZone.style.display = 'none';
+        console.log('[DirectHLS] Overlay removido, iframe completamente interactivo');
+      }, 2000);
+    });
+    
+    // Agregar elementos al DOM
+    iframeWrapper.appendChild(iframe);
+    iframeWrapper.appendChild(overlay);
+    iframeWrapper.appendChild(unmuteZone);
+    
+    this.container.appendChild(iframeWrapper);
+    console.log('[DirectHLS] Iframe con overlay agregado al DOM');
   }
 
   _createVideoPlayer(m3u8Url) {
@@ -186,8 +259,15 @@ export class DirectHLSPlayerService {
       this.video.remove();
       this.video = null;
     }
-    // Limpiar iframes también
+    // Limpiar iframes y wrappers
     const iframes = this.container.querySelectorAll('iframe');
     iframes.forEach(iframe => iframe.remove());
+    
+    const wrappers = this.container.querySelectorAll('div[style*="position: relative"]');
+    wrappers.forEach(wrapper => wrapper.remove());
+    
+    // Limpiar overlays
+    const overlays = this.container.querySelectorAll('#iframe-overlay, #unmute-zone');
+    overlays.forEach(overlay => overlay.remove());
   }
 }
